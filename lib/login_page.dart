@@ -57,13 +57,23 @@ class _LoginPageState extends State<LoginPage> {
               'Please contact the administrator to request access.';
         });
       }
-    } catch (e) {
+    } on Exception catch (e) {
       if (kDebugMode) {
         debugPrint('Sign-in error: $e');
       }
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Sign-in failed. Please try again.';
+        // Remove "Exception: " prefix from error message
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Unexpected sign-in error: $e');
+      }
+      setState(() {
+        _isLoading = false;
+        _errorMessage =
+            'An unexpected error occurred. Please try again or contact support.';
       });
     }
   }

@@ -35,7 +35,28 @@ class AuthService {
       if (kDebugMode) {
         debugPrint('Google sign-in error: $e');
       }
-      rethrow;
+      // Provide meaningful error messages
+      final errorMessage = _parseSignInError(e);
+      throw Exception(errorMessage);
+    }
+  }
+
+  /// Parse sign-in errors and return user-friendly messages.
+  String _parseSignInError(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+
+    if (errorStr.contains('network') || errorStr.contains('timeout')) {
+      return 'Network error. Please check your internet connection.';
+    } else if (errorStr.contains('origin') || errorStr.contains('origin_mismatch')) {
+      return 'Configuration error (origin_mismatch). Please contact support.';
+    } else if (errorStr.contains('invalid_client') || errorStr.contains('invalid_grant')) {
+      return 'Authentication configuration error. Please try again later.';
+    } else if (errorStr.contains('popup') || errorStr.contains('blocked')) {
+      return 'Sign-in popup was blocked. Please allow popups and try again.';
+    } else if (errorStr.contains('cors') || errorStr.contains('cross-origin')) {
+      return 'Cross-origin error. Please refresh the page and try again.';
+    } else {
+      return 'Google sign-in failed. Please check your connection and try again.';
     }
   }
 
