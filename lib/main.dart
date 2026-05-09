@@ -66,7 +66,7 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await FirebaseAppCheck.instance.activate(
-      webProvider: ReCaptchaEnterpriseProvider('6LeoHq8sAAAAAD0upQggWoHs3HlJD273XLk4OIIH'),
+      webProvider: ReCaptchaEnterpriseProvider('6LdGEuIsAAAAAPL7eZsMGE6E8hFVFfutfoXpRY5u'),
     );
   } catch (e) {
     if (kDebugMode) {
