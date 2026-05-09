@@ -19,6 +19,13 @@ class AuthService {
   /// Sign in with Google and return the Firebase [UserCredential].
   Future<UserCredential?> signInWithGoogle() async {
     try {
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
+        return await _auth.signInWithPopup(provider);
+      }
+
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null; // user cancelled
 
