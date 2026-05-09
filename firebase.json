@@ -1,0 +1,17 @@
+{
+    "firestore": {
+        "rules": "firestore.rules"
+    },
+    "flutter": {
+        "platforms": {
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "frisbeedisk2026",
+                    "configurations": {
+                        "web": "1:64929332234:web:38ec0d0ebbf8b4d91273f3"
+                    }
+                }
+            }
+        }
+    }
+}

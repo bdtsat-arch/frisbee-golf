@@ -1,0 +1,81 @@
+# Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+flutter_*.log
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Android
+android/*/**
+android/app/build/
+android/.gradle/
+android/.idea/
+
+# iOS
+ios/*/**
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Web
+web/*/**
+web/build/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Pub cache
+.pub-cache/
+
+# Test coverage
+coverage/
+
+# Environment variables
+.env
+
+# IDE and project files
+*.iml
+.idea_modules/
+
+# Flutter generated files and metadata
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter_export_environment.sh
+.metadata
+
+# Generated plugin registrant and plugin artifacts
+**/generated_plugin_registrant.*
+**/generated_plugins.*
+
+# Flutter tool/build state
+.flutter_build/
+.flutter_tool/
+
+# Windows/desktop ephemeral and generated files
+windows/*/**
+windows/flutter/ephemeral/
+windows/flutter/generated_config.*
+windows/ephemeral/
+
+# Compiled executables (desktop builds)
+**/*.exe
+
+macos/*/**
+windows/*/**
+linux/*/**

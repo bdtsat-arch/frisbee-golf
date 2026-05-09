@@ -1,0 +1,26 @@
+name: frisbee_demo
+description: A Flutter Web app for scoring Frisbee games.
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  shared_preferences: ^2.2.2
+  firebase_core: ^4.4.0
+  firebase_app_check: ^0.4.1+4
+  cloud_firestore: ^6.1.2
+  firebase_auth: ^6.1.4
+  google_sign_in: ^6.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
