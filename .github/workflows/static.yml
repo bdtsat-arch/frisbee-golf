@@ -42,7 +42,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter web app
-        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+        run: flutter build web --debug --base-href "/${{ github.event.repository.name }}/"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

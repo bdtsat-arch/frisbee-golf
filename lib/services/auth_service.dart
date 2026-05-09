@@ -44,6 +44,10 @@ class AuthService {
   /// Parse sign-in errors and return user-friendly messages.
   String _parseSignInError(dynamic error) {
     final errorStr = error.toString().toLowerCase();
+    
+    if (kDebugMode) {
+      debugPrint('Auth error string: $errorStr');
+    }
 
     if (errorStr.contains('network') || errorStr.contains('timeout')) {
       return 'Network error. Please check your internet connection.';
