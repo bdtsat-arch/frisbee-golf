@@ -31,6 +31,7 @@ Also run with ctrl+shift+B
 
 Run `flutter build web` to build for deployment.
 
+Use this to address an issue:  Run the build task and debug error
 
 ## TO DO Before Publishing
 

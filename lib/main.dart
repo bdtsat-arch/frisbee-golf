@@ -141,7 +141,10 @@ class FrisbeeDemoPage extends StatefulWidget {
 }
 
 class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
+  static const String _kAddNewCourseOptionId = '__add_new_course__';
+
   int _selectedIndex = 0;
+  int _courseDropdownResetVersion = 0;
   int numPlayers = 2;
   int numHoles = 9;
   List<List<String>> scores = [];
@@ -465,6 +468,15 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
   }
 
   void _onCourseSelected(SavedCourse? course) {
+    if (course?.id == _kAddNewCourseOptionId) {
+      setState(() {
+        selectedCourse = null;
+        _courseDropdownResetVersion++;
+        _selectedIndex = 1; // Navigate to Course tab
+      });
+      return;
+    }
+
     if (course == null) {
       setState(() {
         selectedCourse = null;
@@ -605,6 +617,16 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
       );
       return;
     }
+
+    if (index == 0) {
+      setState(() {
+        _selectedIndex = 0;
+        selectedCourse = null; // Default dropdown to Custom Course on Home
+        _courseDropdownResetVersion++;
+      });
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -705,11 +727,13 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
                               fontSize: 14, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
                       const Text(
-                        'Select Custom Course for a One-Time Course and fill in the details below OR select a different Course from the Drop-Down List.\nTo create a new course, goto the Course Tab to create a new Course.',
+                        'Select One Time Course and fill in the details below OR select a different Course from the Drop-Down List.',
                         style: TextStyle(fontSize: 12),
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<SavedCourse>(
+                        key: ValueKey(
+                            'course_dropdown_${_courseDropdownResetVersion}_${selectedCourse?.id ?? 'custom'}'),
                         value: selectedCourse,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
@@ -720,7 +744,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
                         items: [
                           const DropdownMenuItem<SavedCourse>(
                             value: null,
-                            child: Text('Custom Course'),
+                            child: Text('One Time Course'),
                           ),
                           ...savedCourses.map((course) {
                             return DropdownMenuItem<SavedCourse>(
@@ -728,6 +752,16 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
                               child: Text(course.name),
                             );
                           }),
+                          DropdownMenuItem<SavedCourse>(
+                            value: SavedCourse(
+                              id: _kAddNewCourseOptionId,
+                              name: 'Add New Course',
+                              numHoles: 0,
+                              parValues: const [],
+                              distanceValues: const [],
+                            ),
+                            child: const Text('Add New Course'),
+                          ),
                         ],
                         onChanged: _onCourseSelected,
                       ),
@@ -740,7 +774,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
                             LengthLimitingTextInputFormatter(30)
                           ],
                           decoration: const InputDecoration(
-                            labelText: 'Custom Course Name',
+                            labelText: 'One Time Course Name',
                             border: OutlineInputBorder(),
                             counterText: '',
                           ),
@@ -806,7 +840,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
             ),
             const SizedBox(height: 20),
             if (selectedCourse == null) ...[
-              const Text('Only for a Custom Course',
+              const Text('Only for a One Time Course',
                   style: TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
