@@ -59,10 +59,11 @@ class FirestoreService {
     }
   }
 
-  Future<void> saveGame(GameHistory game) async {
+  Future<String> saveGame(GameHistory game) async {
     try {
       _validateGame(game);
-      await _gamesCollection.add(game.toJson());
+      final docRef = await _gamesCollection.add(game.toJson());
+      return docRef.id;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Game validation error: $e');

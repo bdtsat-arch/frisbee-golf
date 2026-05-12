@@ -152,6 +152,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
   String courseName = '';
   int _gameSessionVersion = 0;
   int _initialHoleForActiveGame = 0;
+  String? _activeGameId;
   final List<TextEditingController> _nameControllers = [];
   final List<TextEditingController> _parControllers = [];
   final List<TextEditingController> _distanceControllers = [];
@@ -304,10 +305,18 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
     );
 
     try {
-      await _firestoreService.saveGame(game);
+      final didUpdate = _activeGameId != null;
+      if (_activeGameId != null) {
+        await _firestoreService.updateGame(_activeGameId!, game);
+      } else {
+        _activeGameId = await _firestoreService.saveGame(game);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Game saved to cloud!')),
+          SnackBar(
+            content:
+                Text(didUpdate ? 'Game updated in cloud!' : 'Game saved to cloud!'),
+          ),
         );
       }
     } catch (e) {
@@ -323,6 +332,9 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
     final game = gameHistory[index];
     if (game.id != null) {
       _firestoreService.deleteGame(game.id!);
+      if (_activeGameId == game.id) {
+        _activeGameId = null;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Game deleted')),
       );
@@ -352,6 +364,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
 
   void _continueGame(GameHistory game) {
     setState(() {
+      _activeGameId = game.id;
       numPlayers = game.numPlayers;
       numHoles = game.numHoles;
       _ensureControllers(numPlayers);
@@ -410,6 +423,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
 
   void _startGame() {
     setState(() {
+      _activeGameId = null;
       scores = List.generate(numPlayers, (_) => List.filled(numHoles, ""));
       playerNames = List.generate(numPlayers, (i) {
         final txt =
@@ -437,6 +451,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
 
   void _onRestart() {
     setState(() {
+      _activeGameId = null;
       scores = [];
       _selectedIndex = 0; // Return to Home tab
     });

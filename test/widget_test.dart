@@ -7,11 +7,22 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'package:frisbee_demo/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: 'test-api-key',
+        appId: '1:1234567890:web:testappid',
+        messagingSenderId: '1234567890',
+        projectId: 'test-project-id',
+      ),
+    );
+
     // Build our app and trigger a frame.
     await tester.pumpWidget(const FrisbeeDemoApp());
 
