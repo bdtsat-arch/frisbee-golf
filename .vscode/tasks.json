@@ -9,7 +9,7 @@
         "run",
         "-d",
         "web-server",
-        "--web-port=5000"
+        "--web-port=5001"
       ],
       "isBackground": true,
       "group": {

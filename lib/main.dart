@@ -117,6 +117,13 @@ class _FrisbeeDemoAppState extends State<FrisbeeDemoApp> {
     setState(() => _isAuthenticated = true);
   }
 
+  Future<void> _onSignOut() async {
+    await _authService.signOut();
+    if (mounted) {
+      setState(() => _isAuthenticated = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -127,14 +134,16 @@ class _FrisbeeDemoAppState extends State<FrisbeeDemoApp> {
               body: Center(child: CircularProgressIndicator()),
             )
           : _isAuthenticated
-              ? const FrisbeeDemoPage()
+              ? FrisbeeDemoPage(onSignOut: _onSignOut)
               : LoginPage(onLoginSuccess: _onLoginSuccess),
     );
   }
 }
 
 class FrisbeeDemoPage extends StatefulWidget {
-  const FrisbeeDemoPage({super.key});
+  final Future<void> Function() onSignOut;
+
+  const FrisbeeDemoPage({super.key, required this.onSignOut});
 
   @override
   State<FrisbeeDemoPage> createState() => _FrisbeeDemoPageState();
@@ -144,6 +153,7 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
   static const String _kAddNewCourseOptionId = '__add_new_course__';
 
   int _selectedIndex = 0;
+  bool _isSigningOut = false;
   int _courseDropdownResetVersion = 0;
   int numPlayers = 2;
   int numHoles = 9;
@@ -632,10 +642,44 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
     });
   }
 
+  Future<void> _handleSignOut() async {
+    setState(() => _isSigningOut = true);
+    try {
+      await widget.onSignOut();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign out failed. Please try again.')),
+      );
+      setState(() => _isSigningOut = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Frisbee Scoring App')),
+      appBar: AppBar(
+        title: const Text('Frisbee Scoring App'),
+        actions: [
+          if (_isSigningOut)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              onPressed: _handleSignOut,
+              tooltip: 'Sign out',
+              icon: const Icon(Icons.logout),
+            ),
+        ],
+      ),
       body: IndexedStack(
         index: _selectedIndex,
         children: [
