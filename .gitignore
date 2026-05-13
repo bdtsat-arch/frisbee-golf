@@ -28,7 +28,7 @@ web/*/**
 web/build/
 
 # IDEs
-.vscode/
+
 .idea/
 
 # OS generated files
