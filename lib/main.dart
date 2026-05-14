@@ -631,8 +631,6 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
     if (index == 0) {
       setState(() {
         _selectedIndex = 0;
-        selectedCourse = null; // Default dropdown to Custom Course on Home
-        _courseDropdownResetVersion++;
       });
       return;
     }
