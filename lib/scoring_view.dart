@@ -45,6 +45,8 @@ class _ScoringViewState extends State<ScoringView> {
   late ScrollController _gridScrollController;
   int lastCompletedHole = -1;
 
+  static const List<int> _strokeOptions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +61,7 @@ class _ScoringViewState extends State<ScoringView> {
     );
     _scrollController = ScrollController();
     _gridScrollController = ScrollController();
+    _ensureStrokeDefaultsForHole(currentHole);
     if (kDebugMode) {
       debugPrint('ScoringView.initState currentHole=$currentHole numPlayers=${widget.numPlayers} controllers=${controllers.length}');
     }
@@ -88,6 +91,7 @@ class _ScoringViewState extends State<ScoringView> {
       playerOrder = List.generate(widget.numPlayers, (i) => i);
       // Ensure lastCompletedHole is valid for new hole count
       if (lastCompletedHole >= widget.numHoles) lastCompletedHole = widget.numHoles - 1;
+      _ensureStrokeDefaultsForHole(currentHole);
     }
   }
 
@@ -201,6 +205,24 @@ class _ScoringViewState extends State<ScoringView> {
     lastCompletedHole = holeIndex;
   }
 
+  void _ensureStrokeDefaultsForHole(int holeIndex) {
+    bool changed = false;
+
+    for (int player = 0; player < widget.numPlayers; player++) {
+      final currentValue = int.tryParse(widget.scores[player][holeIndex]);
+      if (currentValue == null || currentValue < 0 || currentValue > 10) {
+        widget.scores[player][holeIndex] = '0';
+        errorMessages[player][holeIndex] = '';
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      widget.onScoresChanged(widget.scores);
+      _maybeUpdateOrderForHole(holeIndex);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (kDebugMode) {
@@ -263,17 +285,26 @@ class _ScoringViewState extends State<ScoringView> {
                         const SizedBox(width: 12),
                         SizedBox(
                           width: 88,
-                          child: TextField(
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            onChanged: (value) {
-                              updateScore(index, value);
-                            },
-                            controller: controllers[index],
+                          child: DropdownButtonFormField<int>(
+                            value: int.tryParse(widget.scores[index][currentHole]) ?? 0,
+                            isExpanded: true,
+                            menuMaxHeight: 5 * kMinInteractiveDimension,
+                            alignment: Alignment.center,
                             decoration: const InputDecoration(
                               isDense: true,
                               contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                              border: OutlineInputBorder(),
                             ),
+                            items: _strokeOptions.map((int value) {
+                              return DropdownMenuItem<int>(
+                                value: value,
+                                child: Text(value.toString()),
+                              );
+                            }).toList(),
+                            onChanged: (int? value) {
+                              if (value == null) return;
+                              updateScore(index, value.toString());
+                            },
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -312,9 +343,7 @@ class _ScoringViewState extends State<ScoringView> {
                         onPressed: () {
                           setState(() {
                             currentHole--;
-                            for (int i = 0; i < controllers.length; i++) {
-                              controllers[i].text = widget.scores[i][currentHole];
-                            }
+                            _ensureStrokeDefaultsForHole(currentHole);
                           });
                         },
                         child: const Text('Previous'),
@@ -327,9 +356,7 @@ class _ScoringViewState extends State<ScoringView> {
                           onPressed: () {
                             setState(() {
                               currentHole++;
-                              for (int i = 0; i < controllers.length; i++) {
-                                controllers[i].text = widget.scores[i][currentHole];
-                              }
+                              _ensureStrokeDefaultsForHole(currentHole);
                             });
                           },
                           child: const Text('Next'),

@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run Flutter Web (Edge :5000)",
+      "label": "Run Flutter Web (Open Safari and Localhost :5001)",
       "type": "shell",
       "command": "flutter",
       "args": [
