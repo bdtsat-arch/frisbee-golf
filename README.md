@@ -25,7 +25,7 @@ ctrl + shift + p
 2. Run `flutter pub get` to install dependencies.
 3. Run `flutter run -d chrome` to launch in Chrome browser.Also
 
-Also run with ctrl+shift+B
+Also run with Command+shift+B
 
 ## Build for Web
 
