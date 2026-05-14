@@ -248,6 +248,10 @@ class _ScoringViewState extends State<ScoringView> {
               if (kDebugMode) {
                 debugPrint('ScoringView building player index=$index');
               }
+              final totalForPlayer = widget.scores[index]
+                  .where((s) => s.isNotEmpty && int.tryParse(s) != null)
+                  .map((s) => int.parse(s))
+                  .fold(0, (a, b) => a + b);
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Column(
@@ -270,6 +274,14 @@ class _ScoringViewState extends State<ScoringView> {
                               isDense: true,
                               contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
                             ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 90,
+                          child: Text(
+                            'Total: $totalForPlayer',
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ),
                       ],
@@ -404,18 +416,6 @@ class _ScoringViewState extends State<ScoringView> {
                 );
               },
             ),
-            const SizedBox(height: 20),
-            const Text('Totals:', style: TextStyle(fontSize: 18)),
-            ...List.generate(widget.numPlayers, (index) {
-              int total = widget.scores[index]
-                  .where((s) => s.isNotEmpty && int.tryParse(s) != null)
-                  .map((s) => int.tryParse(s)!)
-                  .fold(0, (a, b) => a + b);
-              final name = index < widget.playerNames.length && widget.playerNames[index].isNotEmpty
-                  ? widget.playerNames[index]
-                  : 'Player ${index + 1}';
-              return Text('$name: $total');
-            }),
             const SizedBox(height: 20),
             const Text('Game Progress Dashboard',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
