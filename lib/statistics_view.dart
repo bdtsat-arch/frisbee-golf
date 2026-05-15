@@ -171,9 +171,34 @@ class StatisticsView extends StatelessWidget {
           (i) => DataColumn(
               label: Text('${i + 1}',
                   style: const TextStyle(fontWeight: FontWeight.w600)))),
+      const DataColumn(
+          label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold))),
     ];
 
-    final rows = games.map((game) {
+    // Build par row from the first game that has par values for this hole count
+    final parGame = games.firstWhere(
+      (g) => g.parValues.length >= maxHoles,
+      orElse: () => games.first,
+    );
+    final parCells = <DataCell>[
+      const DataCell(
+          Text('Par', style: TextStyle(fontWeight: FontWeight.w600))),
+    ];
+    int parTotal = 0;
+    for (int hole = 0; hole < maxHoles; hole++) {
+      if (hole < parGame.parValues.length) {
+        final p = parGame.parValues[hole];
+        parCells.add(DataCell(Text(p.toString())));
+        parTotal += p;
+      } else {
+        parCells.add(const DataCell(Text('')));
+      }
+    }
+    parCells.add(DataCell(Text(parTotal.toString(),
+        style: const TextStyle(fontWeight: FontWeight.w600))));
+    final parRow = DataRow(cells: parCells);
+
+    final gameRows = games.map((game) {
       int playerIndex = -1;
       for (int i = 0; i < game.playerNames.length; i++) {
         if (game.playerNames[i].trim().toLowerCase() ==
@@ -184,6 +209,7 @@ class StatisticsView extends StatelessWidget {
       }
 
       final cells = <DataCell>[DataCell(Text(game.date))];
+      int rowTotal = 0;
 
       for (int hole = 0; hole < maxHoles; hole++) {
         String score = '';
@@ -193,6 +219,7 @@ class StatisticsView extends StatelessWidget {
               hole < game.scores[playerIndex].length) {
             final raw = game.scores[playerIndex][hole].trim();
             score = raw.isEmpty ? '-' : raw;
+            rowTotal += int.tryParse(raw) ?? 0;
           } else {
             score = '-';
           }
@@ -200,8 +227,70 @@ class StatisticsView extends StatelessWidget {
         cells.add(DataCell(Text(score)));
       }
 
+      cells.add(DataCell(Text(playerIndex >= 0 ? rowTotal.toString() : '')));
       return DataRow(cells: cells);
     }).toList();
+
+    // Collect per-hole scores for Avg / Low / High summary rows
+    final holeScores = List<List<int>>.generate(maxHoles, (_) => []);
+    final gameTotals = <int>[];
+    for (final game in games) {
+      int pi = -1;
+      for (int i = 0; i < game.playerNames.length; i++) {
+        if (game.playerNames[i].trim().toLowerCase() ==
+            playerName.trim().toLowerCase()) {
+          pi = i;
+          break;
+        }
+      }
+      if (pi < 0) continue;
+      int gameTotal = 0;
+      for (int hole = 0; hole < maxHoles; hole++) {
+        if (hole < game.numHoles &&
+            pi < game.scores.length &&
+            hole < game.scores[pi].length) {
+          final v = int.tryParse(game.scores[pi][hole].trim());
+          if (v != null) {
+            holeScores[hole].add(v);
+            gameTotal += v;
+          }
+        }
+      }
+      gameTotals.add(gameTotal);
+    }
+
+    const summaryStyle = TextStyle(fontSize: 12, color: Colors.black54);
+
+    List<DataCell> summaryRowCells(String label,
+        String Function(List<int>) perHole, String Function(List<int>) total) {
+      final cells = <DataCell>[DataCell(Text(label, style: summaryStyle))];
+      for (int hole = 0; hole < maxHoles; hole++) {
+        final val = holeScores[hole].isEmpty ? '' : perHole(holeScores[hole]);
+        cells.add(DataCell(Text(val, style: summaryStyle)));
+      }
+      cells.add(DataCell(Text(gameTotals.isEmpty ? '' : total(gameTotals),
+          style: summaryStyle)));
+      return cells;
+    }
+
+    final avgRow = DataRow(
+        cells: summaryRowCells(
+      'Avg',
+      (v) => (v.fold(0, (a, b) => a + b) / v.length).toStringAsFixed(1),
+      (t) => (t.fold(0, (a, b) => a + b) / t.length).toStringAsFixed(1),
+    ));
+    final lowRow = DataRow(
+        cells: summaryRowCells(
+      'Low',
+      (v) => v.reduce((a, b) => a < b ? a : b).toString(),
+      (t) => t.reduce((a, b) => a < b ? a : b).toString(),
+    ));
+    final highRow = DataRow(
+        cells: summaryRowCells(
+      'High',
+      (v) => v.reduce((a, b) => a > b ? a : b).toString(),
+      (t) => t.reduce((a, b) => a > b ? a : b).toString(),
+    ));
 
     return DataTable(
       columnSpacing: 18,
@@ -210,7 +299,7 @@ class StatisticsView extends StatelessWidget {
       dataRowMaxHeight: 36,
       headingRowHeight: 36,
       columns: columns,
-      rows: rows,
+      rows: [parRow, ...gameRows, avgRow, lowRow, highRow],
     );
   }
 
