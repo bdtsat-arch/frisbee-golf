@@ -2,6 +2,15 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Generate Build Info",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/gen_build_info.sh"],
+      "group": "build",
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
       "label": "Run Flutter Web (Open Safari and Localhost :5001)",
       "type": "shell",
       "command": "flutter",
@@ -12,6 +21,7 @@
         "--web-port=5001"
       ],
       "isBackground": true,
+      "dependsOn": ["Generate Build Info"],
       "group": {
         "kind": "build",
         "isDefault": true

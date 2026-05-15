@@ -11,6 +11,7 @@ import 'scoring_view.dart';
 import 'history_view.dart';
 import 'course_view.dart';
 import 'login_page.dart';
+import 'build_info.dart';
 
 class SavedCourse {
   final String? id;
@@ -58,6 +59,10 @@ class SavedCourse {
   int get hashCode => Object.hash(id, name, numHoles, Object.hashAll(parValues),
       Object.hashAll(distanceValues));
 }
+
+const String kAppVersion = '1.0.0';
+
+// kBuildHash and kBuildDate come from the auto-generated lib/build_info.dart
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -192,7 +197,6 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
     _ensureParControllers(numHoles);
     _ensureDistanceControllers(numHoles);
     _setupFirestoreListeners();
-    _loadSavedCourseName();
   }
 
   void _setupFirestoreListeners() {
@@ -254,20 +258,6 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
       await prefs.setStringList(_kSavedNamesKey, names);
     } catch (e) {
       // ignore save errors
-    }
-  }
-
-  Future<void> _loadSavedCourseName() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(_kCourseNameKey);
-      if (saved == null || saved.isEmpty) return;
-      _courseNameController.text = saved;
-      setState(() {
-        courseName = saved;
-      });
-    } catch (e) {
-      // ignore errors
     }
   }
 
@@ -657,7 +647,16 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Frisbee Scoring App'),
+        toolbarHeight: 64,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Frisbee Scoring App'),
+            Text('Ver $kBuildNumber · $kBuildHash',
+                style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          ],
+        ),
         actions: [
           if (_isSigningOut)
             const Padding(
@@ -1038,6 +1037,11 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
               child: const Text('Start Game'),
             ),
             const SizedBox(height: 20),
+            Text(
+              'Ver $kBuildNumber · $kBuildHash',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
