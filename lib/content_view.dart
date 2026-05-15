@@ -205,6 +205,7 @@ class _ContentViewState extends State<ContentView> {
                           controller: _nameControllers[index],
                           maxLength: 15,
                           inputFormatters: [LengthLimitingTextInputFormatter(15)],
+                          textCapitalization: TextCapitalization.words,
                           decoration: InputDecoration(
                             labelText: 'Player ${index + 1} Name',
                             border: const OutlineInputBorder(),

@@ -166,6 +166,8 @@ class StatisticsView extends StatelessWidget {
       }
     }
 
+    allPlayers.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
     if (allPlayers.isEmpty) return const SizedBox.shrink();
 
     final maxHoles =
