@@ -9,6 +9,7 @@ import 'services/auth_service.dart';
 import 'firebase_options.dart';
 import 'scoring_view.dart';
 import 'history_view.dart';
+import 'statistics_view.dart';
 import 'course_view.dart';
 import 'login_page.dart';
 import 'build_info.dart';
@@ -71,7 +72,8 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await FirebaseAppCheck.instance.activate(
-      webProvider: ReCaptchaEnterpriseProvider('6LdGEuIsAAAAAPL7eZsMGE6E8hFVFfutfoXpRY5u'),
+      webProvider: ReCaptchaEnterpriseProvider(
+          '6LdGEuIsAAAAAPL7eZsMGE6E8hFVFfutfoXpRY5u'),
     );
   } catch (e) {
     if (kDebugMode) {
@@ -317,8 +319,8 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text(didUpdate ? 'Game updated in cloud!' : 'Game saved to cloud!'),
+            content: Text(
+                didUpdate ? 'Game updated in cloud!' : 'Game saved to cloud!'),
           ),
         );
       }
@@ -349,7 +351,8 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
     }
   }
 
-  int _findFirstUnfinishedHole(List<List<String>> gameScores, int holes, int players) {
+  int _findFirstUnfinishedHole(
+      List<List<String>> gameScores, int holes, int players) {
     for (int h = 0; h < holes; h++) {
       for (int p = 0; p < players; p++) {
         final row = p < gameScores.length ? gameScores[p] : <String>[];
@@ -403,11 +406,13 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
       courseName = game.courseName;
       _courseNameController.text = game.courseName;
       selectedCourse = savedCourses.where((course) {
-        return course.name == game.courseName && course.numHoles == game.numHoles;
+        return course.name == game.courseName &&
+            course.numHoles == game.numHoles;
       }).firstOrNull;
 
       distanceValues = List<int>.generate(numHoles, (i) {
-        if (selectedCourse != null && i < selectedCourse!.distanceValues.length) {
+        if (selectedCourse != null &&
+            i < selectedCourse!.distanceValues.length) {
           return selectedCourse!.distanceValues[i];
         }
         return 0;
@@ -717,6 +722,10 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
             onDelete: _deleteGame,
             onContinueGame: _continueGame,
           ),
+          // Statistics tab
+          StatisticsView(
+            history: gameHistory,
+          ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -737,8 +746,12 @@ class _FrisbeeDemoPageState extends State<FrisbeeDemoPage> {
             label: 'Game',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.history),
+            icon: Icon(Icons.history_toggle_off),
             label: 'History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Statistics',
           ),
         ],
       ),
