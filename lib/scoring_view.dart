@@ -170,6 +170,110 @@ class _ScoringViewState extends State<ScoringView> {
     return average.toStringAsFixed(1);
   }
 
+  String _calculatePlayerHoleLow(String playerName, int holeIndex) {
+    if (widget.courseName.isEmpty || playerName.isEmpty) return '';
+    
+    // Filter games with the same course name and that are complete
+    final matchingGames = widget.gameHistory.where((game) {
+      // Check if game is for the same course
+      if (game.courseName != widget.courseName) return false;
+      
+      // Check if game has enough holes for this holeIndex
+      if (game.numHoles <= holeIndex) return false;
+      
+      // Check if game is complete (all holes must have valid scores for all players)
+      for (int p = 0; p < game.numPlayers; p++) {
+        if (p >= game.scores.length) return false;
+        for (int h = 0; h < game.numHoles; h++) {
+          if (h >= game.scores[p].length) return false;
+          final scoreStr = game.scores[p][h].trim();
+          if (scoreStr.isEmpty || int.tryParse(scoreStr) == null) return false;
+        }
+      }
+      
+      return true;
+    }).toList();
+    
+    if (matchingGames.isEmpty) return '';
+    
+    // Find lowest score for this player on this hole
+    int? lowestScore;
+    
+    for (final game in matchingGames) {
+      // Find this player in the historical game (with trimmed comparison)
+      for (int p = 0; p < game.numPlayers; p++) {
+        if (p < game.playerNames.length && 
+            game.playerNames[p].trim().toLowerCase() == playerName.trim().toLowerCase()) {
+          if (holeIndex < game.scores[p].length) {
+            final scoreStr = game.scores[p][holeIndex].trim();
+            final score = int.tryParse(scoreStr);
+            if (score != null) {
+              if (lowestScore == null || score < lowestScore) {
+                lowestScore = score;
+              }
+            }
+          }
+          break; // Found the player, move to next game
+        }
+      }
+    }
+    
+    if (lowestScore == null) return '';
+    return lowestScore.toString();
+  }
+
+  String _calculatePlayerHoleHigh(String playerName, int holeIndex) {
+    if (widget.courseName.isEmpty || playerName.isEmpty) return '';
+    
+    // Filter games with the same course name and that are complete
+    final matchingGames = widget.gameHistory.where((game) {
+      // Check if game is for the same course
+      if (game.courseName != widget.courseName) return false;
+      
+      // Check if game has enough holes for this holeIndex
+      if (game.numHoles <= holeIndex) return false;
+      
+      // Check if game is complete (all holes must have valid scores for all players)
+      for (int p = 0; p < game.numPlayers; p++) {
+        if (p >= game.scores.length) return false;
+        for (int h = 0; h < game.numHoles; h++) {
+          if (h >= game.scores[p].length) return false;
+          final scoreStr = game.scores[p][h].trim();
+          if (scoreStr.isEmpty || int.tryParse(scoreStr) == null) return false;
+        }
+      }
+      
+      return true;
+    }).toList();
+    
+    if (matchingGames.isEmpty) return '';
+    
+    // Find highest score for this player on this hole
+    int? highestScore;
+    
+    for (final game in matchingGames) {
+      // Find this player in the historical game (with trimmed comparison)
+      for (int p = 0; p < game.numPlayers; p++) {
+        if (p < game.playerNames.length && 
+            game.playerNames[p].trim().toLowerCase() == playerName.trim().toLowerCase()) {
+          if (holeIndex < game.scores[p].length) {
+            final scoreStr = game.scores[p][holeIndex].trim();
+            final score = int.tryParse(scoreStr);
+            if (score != null) {
+              if (highestScore == null || score > highestScore) {
+                highestScore = score;
+              }
+            }
+          }
+          break; // Found the player, move to next game
+        }
+      }
+    }
+    
+    if (highestScore == null) return '';
+    return highestScore.toString();
+  }
+
   void _maybeUpdateOrderForHole(int holeIndex) {
     if (!_holeIsComplete(holeIndex)) return;
     if (holeIndex <= lastCompletedHole) return;
@@ -559,6 +663,40 @@ class _ScoringViewState extends State<ScoringView> {
       avgCells.add(DataCell(Text(hasAnyAvg ? avgTotal.toStringAsFixed(1) : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
       if (hasAnyAvg) {
         rows.add(DataRow(cells: avgCells));
+      }
+      
+      // Add LOW row under this player if we have historical data
+      List<DataCell> lowCells = [const DataCell(Text('  LOW', style: TextStyle(fontSize: 12, color: Colors.grey)))];
+      bool hasAnyLow = false;
+      int lowTotal = 0;
+      for (int j = 0; j < widget.numHoles; j++) {
+        final low = _calculatePlayerHoleLow(name, j);
+        if (low.isNotEmpty) {
+          hasAnyLow = true;
+          lowTotal += int.tryParse(low) ?? 0;
+        }
+        lowCells.add(DataCell(Text(low.isNotEmpty ? low : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      }
+      lowCells.add(DataCell(Text(hasAnyLow ? lowTotal.toString() : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      if (hasAnyLow) {
+        rows.add(DataRow(cells: lowCells));
+      }
+      
+      // Add HIGH row under this player if we have historical data
+      List<DataCell> highCells = [const DataCell(Text('  HIGH', style: TextStyle(fontSize: 12, color: Colors.grey)))];
+      bool hasAnyHigh = false;
+      int highTotal = 0;
+      for (int j = 0; j < widget.numHoles; j++) {
+        final high = _calculatePlayerHoleHigh(name, j);
+        if (high.isNotEmpty) {
+          hasAnyHigh = true;
+          highTotal += int.tryParse(high) ?? 0;
+        }
+        highCells.add(DataCell(Text(high.isNotEmpty ? high : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      }
+      highCells.add(DataCell(Text(hasAnyHigh ? highTotal.toString() : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      if (hasAnyHigh) {
+        rows.add(DataRow(cells: highCells));
       }
     }
 

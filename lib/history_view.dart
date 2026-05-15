@@ -263,6 +263,133 @@ class HistoryView extends StatelessWidget {
     }
   }
 
+  String _calculateHistoricalPlayerHoleLow(String courseName, String playerName, int holeIndex) {
+    if (courseName.isEmpty || playerName.isEmpty) return '';
+    
+    // Filter games with the same course name
+    final matchingGames = history.where((game) {
+      // Check if game is for the same course
+      if (game.courseName != courseName) return false;
+      
+      // Check if game has enough holes for this holeIndex
+      if (game.numHoles <= holeIndex) return false;
+      
+      return true;
+    }).toList();
+    
+    if (matchingGames.isEmpty) return '';
+    
+    // Find lowest score for this player on this hole
+    int? lowestScore;
+    
+    for (final game in matchingGames) {
+      // Find this player in the historical game (with trimmed comparison)
+      for (int p = 0; p < game.numPlayers; p++) {
+        if (p < game.playerNames.length && 
+            game.playerNames[p].trim().toLowerCase() == playerName.trim().toLowerCase()) {
+          if (holeIndex < game.scores[p].length) {
+            final scoreStr = game.scores[p][holeIndex].trim();
+            final score = int.tryParse(scoreStr);
+            if (score != null) {
+              if (lowestScore == null || score < lowestScore) {
+                lowestScore = score;
+              }
+            }
+          }
+          break; // Found the player, move to next game
+        }
+      }
+    }
+    
+    if (lowestScore == null) return '';
+    return lowestScore.toString();
+  }
+
+  String _calculateHistoricalPlayerHoleAverage(String courseName, String playerName, int holeIndex) {
+    if (courseName.isEmpty || playerName.isEmpty) return '';
+
+    // Filter games with the same course name
+    final matchingGames = history.where((game) {
+      // Check if game is for the same course
+      if (game.courseName != courseName) return false;
+
+      // Check if game has enough holes for this holeIndex
+      if (game.numHoles <= holeIndex) return false;
+
+      return true;
+    }).toList();
+
+    if (matchingGames.isEmpty) return '';
+
+    // Calculate average score for this player on this hole
+    int totalScores = 0;
+    int scoreCount = 0;
+
+    for (final game in matchingGames) {
+      // Find this player in the historical game (with trimmed comparison)
+      for (int p = 0; p < game.numPlayers; p++) {
+        if (p < game.playerNames.length &&
+            game.playerNames[p].trim().toLowerCase() == playerName.trim().toLowerCase()) {
+          if (holeIndex < game.scores[p].length) {
+            final scoreStr = game.scores[p][holeIndex].trim();
+            final score = int.tryParse(scoreStr);
+            if (score != null) {
+              totalScores += score;
+              scoreCount++;
+            }
+          }
+          break; // Found the player, move to next game
+        }
+      }
+    }
+
+    if (scoreCount == 0) return '';
+    final average = totalScores / scoreCount;
+    return average.toStringAsFixed(1);
+  }
+
+  String _calculateHistoricalPlayerHoleHigh(String courseName, String playerName, int holeIndex) {
+    if (courseName.isEmpty || playerName.isEmpty) return '';
+    
+    // Filter games with the same course name
+    final matchingGames = history.where((game) {
+      // Check if game is for the same course
+      if (game.courseName != courseName) return false;
+      
+      // Check if game has enough holes for this holeIndex
+      if (game.numHoles <= holeIndex) return false;
+      
+      return true;
+    }).toList();
+    
+    if (matchingGames.isEmpty) return '';
+    
+    // Find highest score for this player on this hole
+    int? highestScore;
+    
+    for (final game in matchingGames) {
+      // Find this player in the historical game (with trimmed comparison)
+      for (int p = 0; p < game.numPlayers; p++) {
+        if (p < game.playerNames.length && 
+            game.playerNames[p].trim().toLowerCase() == playerName.trim().toLowerCase()) {
+          if (holeIndex < game.scores[p].length) {
+            final scoreStr = game.scores[p][holeIndex].trim();
+            final score = int.tryParse(scoreStr);
+            if (score != null) {
+              if (highestScore == null || score > highestScore) {
+                highestScore = score;
+              }
+            }
+          }
+          break; // Found the player, move to next game
+        }
+      }
+    }
+    
+    if (highestScore == null) return '';
+    return highestScore.toString();
+  }
+
   Widget _buildScoreTable(GameHistory game) {
     List<DataColumn> columns = [const DataColumn(label: Text('Player'))];
     for (int i = 0; i < game.numHoles; i++) {
@@ -299,6 +426,57 @@ class HistoryView extends StatelessWidget {
       }
       cells.add(DataCell(Text(total.toString())));
       rows.add(DataRow(cells: cells));
+
+      // Add AVG row under this player if we have historical data
+      List<DataCell> avgCells = [const DataCell(Text('  AVG', style: TextStyle(fontSize: 12, color: Colors.grey)))];
+      bool hasAnyAvg = false;
+      double avgTotal = 0.0;
+      for (int j = 0; j < game.numHoles; j++) {
+        final avg = _calculateHistoricalPlayerHoleAverage(game.courseName, name, j);
+        if (avg.isNotEmpty) {
+          hasAnyAvg = true;
+          avgTotal += double.tryParse(avg) ?? 0.0;
+        }
+        avgCells.add(DataCell(Text(avg.isNotEmpty ? avg : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      }
+      avgCells.add(DataCell(Text(hasAnyAvg ? avgTotal.toStringAsFixed(1) : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      if (hasAnyAvg) {
+        rows.add(DataRow(cells: avgCells));
+      }
+      
+      // Add LOW row under this player if we have historical data
+      List<DataCell> lowCells = [const DataCell(Text('  LOW', style: TextStyle(fontSize: 12, color: Colors.grey)))];
+      bool hasAnyLow = false;
+      int lowTotal = 0;
+      for (int j = 0; j < game.numHoles; j++) {
+        final low = _calculateHistoricalPlayerHoleLow(game.courseName, name, j);
+        if (low.isNotEmpty) {
+          hasAnyLow = true;
+          lowTotal += int.tryParse(low) ?? 0;
+        }
+        lowCells.add(DataCell(Text(low.isNotEmpty ? low : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      }
+      lowCells.add(DataCell(Text(hasAnyLow ? lowTotal.toString() : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      if (hasAnyLow) {
+        rows.add(DataRow(cells: lowCells));
+      }
+      
+      // Add HIGH row under this player if we have historical data
+      List<DataCell> highCells = [const DataCell(Text('  HIGH', style: TextStyle(fontSize: 12, color: Colors.grey)))];
+      bool hasAnyHigh = false;
+      int highTotal = 0;
+      for (int j = 0; j < game.numHoles; j++) {
+        final high = _calculateHistoricalPlayerHoleHigh(game.courseName, name, j);
+        if (high.isNotEmpty) {
+          hasAnyHigh = true;
+          highTotal += int.tryParse(high) ?? 0;
+        }
+        highCells.add(DataCell(Text(high.isNotEmpty ? high : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      }
+      highCells.add(DataCell(Text(hasAnyHigh ? highTotal.toString() : '-', style: const TextStyle(fontSize: 12, color: Colors.grey))));
+      if (hasAnyHigh) {
+        rows.add(DataRow(cells: highCells));
+      }
     }
 
     return DataTable(
