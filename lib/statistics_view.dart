@@ -104,8 +104,55 @@ class StatisticsView extends StatelessWidget {
     return total;
   }
 
+  Widget _buildScoreLine(String label, List<String> values, String total) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          const SizedBox(height: 2),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ...values.map(
+                (value) => Container(
+                  width: 28,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Text(value, style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+              Container(
+                width: 34,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: Text(total,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPlayerBoxes(List<GameHistory> sortedGames) {
-    // Collect unique player names in first-seen order across all games
     final List<String> allPlayers = [];
     for (final game in sortedGames) {
       for (int i = 0; i < game.numPlayers; i++) {
@@ -149,15 +196,141 @@ class StatisticsView extends StatelessWidget {
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child:
-                    _buildPlayerScoreTable(playerName, playerGames, maxHoles),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 700) {
+                    return _buildPlayerScoreMobile(
+                        playerName, playerGames, maxHoles);
+                  }
+                  return _buildPlayerScoreTable(
+                      playerName, playerGames, maxHoles);
+                },
               ),
             ],
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildPlayerScoreMobile(
+      String playerName, List<GameHistory> games, int maxHoles) {
+    final parGame = games.firstWhere(
+      (g) => g.parValues.length >= maxHoles,
+      orElse: () => games.first,
+    );
+
+    final parValues = List<String>.generate(maxHoles, (hole) {
+      if (hole < parGame.parValues.length) {
+        return parGame.parValues[hole].toString();
+      }
+      return '';
+    });
+    final parTotal =
+        parGame.parValues.take(maxHoles).fold<int>(0, (a, b) => a + b);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Holes  ${List.generate(maxHoles, (i) => i + 1).join(' ')}  Total',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        _buildScoreLine('Par', parValues, parTotal.toString()),
+        ...games.map((game) {
+          int playerIndex = -1;
+          for (int i = 0; i < game.playerNames.length; i++) {
+            if (game.playerNames[i].trim().toLowerCase() ==
+                playerName.trim().toLowerCase()) {
+              playerIndex = i;
+              break;
+            }
+          }
+
+          final holeValues = List<String>.generate(maxHoles, (hole) {
+            if (hole >= game.numHoles) return '';
+            if (playerIndex < 0 ||
+                playerIndex >= game.scores.length ||
+                hole >= game.scores[playerIndex].length) {
+              return '-';
+            }
+            final raw = game.scores[playerIndex][hole].trim();
+            return raw.isEmpty ? '-' : raw;
+          });
+          final total = _calculatePlayerGameTotal(game, playerIndex);
+          return _buildScoreLine(game.date, holeValues, total.toString());
+        }),
+        const SizedBox(height: 4),
+        _buildSummaryLines(playerName, games, maxHoles),
+      ],
+    );
+  }
+
+  Widget _buildSummaryLines(
+      String playerName, List<GameHistory> games, int maxHoles) {
+    final holeScores = List<List<int>>.generate(maxHoles, (_) => []);
+    final gameTotals = <int>[];
+    for (final game in games) {
+      int pi = -1;
+      for (int i = 0; i < game.playerNames.length; i++) {
+        if (game.playerNames[i].trim().toLowerCase() ==
+            playerName.trim().toLowerCase()) {
+          pi = i;
+          break;
+        }
+      }
+      if (pi < 0) continue;
+      int gameTotal = 0;
+      for (int hole = 0; hole < maxHoles; hole++) {
+        if (hole < game.numHoles &&
+            pi < game.scores.length &&
+            hole < game.scores[pi].length) {
+          final v = int.tryParse(game.scores[pi][hole].trim());
+          if (v != null) {
+            holeScores[hole].add(v);
+            gameTotal += v;
+          }
+        }
+      }
+      gameTotals.add(gameTotal);
+    }
+
+    String perHoleValue(List<int> values, String kind) {
+      if (values.isEmpty) return '';
+      switch (kind) {
+        case 'avg':
+          return (values.fold(0, (a, b) => a + b) / values.length)
+              .toStringAsFixed(1);
+        case 'low':
+          return values.reduce((a, b) => a < b ? a : b).toString();
+        case 'high':
+          return values.reduce((a, b) => a > b ? a : b).toString();
+      }
+      return '';
+    }
+
+    Widget buildSummaryRow(String label, String kind) {
+      final values = List<String>.generate(
+        maxHoles,
+        (i) => perHoleValue(holeScores[i], kind),
+      );
+      final total = gameTotals.isEmpty
+          ? ''
+          : kind == 'avg'
+              ? (gameTotals.fold(0, (a, b) => a + b) / gameTotals.length)
+                  .toStringAsFixed(1)
+              : kind == 'low'
+                  ? gameTotals.reduce((a, b) => a < b ? a : b).toString()
+                  : gameTotals.reduce((a, b) => a > b ? a : b).toString();
+      return _buildScoreLine(label, values, total);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildSummaryRow('Avg', 'avg'),
+        buildSummaryRow('Low', 'low'),
+        buildSummaryRow('High', 'high'),
+      ],
     );
   }
 
