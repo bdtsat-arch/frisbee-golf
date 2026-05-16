@@ -18,7 +18,9 @@
         "run",
         "-d",
         "web-server",
-        "--web-port=5001"
+        "--web-port=5001",
+        "--web-hostname=0.0.0.0",
+        "--release"
       ],
       "isBackground": true,
       "dependsOn": ["Generate Build Info"],
