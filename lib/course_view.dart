@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -49,6 +50,66 @@ class _CourseViewState extends State<CourseView> {
     } catch (_) {
       return null;
     }
+  }
+
+  bool _isHttpUrl(String value) {
+    final trimmed = value.trim();
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  }
+
+  bool _isStorageRef(String value) {
+    final trimmed = value.trim();
+    return trimmed.startsWith('gs://') || trimmed.startsWith('users/');
+  }
+
+  Future<String?> _resolveDownloadUrl(String imageRef) async {
+    final trimmed = imageRef.trim();
+    if (_isHttpUrl(trimmed)) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('gs://')) {
+      return FirebaseStorage.instance.refFromURL(trimmed).getDownloadURL();
+    }
+
+    if (trimmed.startsWith('users/')) {
+      return FirebaseStorage.instance.ref().child(trimmed).getDownloadURL();
+    }
+
+    return null;
+  }
+
+  Widget _buildResolvedNetworkImage({
+    required String imageRef,
+    required double? width,
+    required double? height,
+    required BoxFit fit,
+  }) {
+    return FutureBuilder<String?>(
+      future: _resolveDownloadUrl(imageRef),
+      builder: (context, snapshot) {
+        final url = snapshot.data;
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+        if (url == null || url.isEmpty) {
+          return const Icon(Icons.broken_image);
+        }
+        return Image.network(
+          url,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+        );
+      },
+    );
   }
 
   @override
@@ -157,8 +218,7 @@ class _CourseViewState extends State<CourseView> {
   }
 
   void _showImagePreview(String imageData, String title) {
-    final isRemote =
-        imageData.startsWith('http://') || imageData.startsWith('https://');
+    final isRemote = _isHttpUrl(imageData) || _isStorageRef(imageData);
     Uint8List? bytes;
     if (!isRemote) {
       try {
@@ -208,13 +268,11 @@ class _CourseViewState extends State<CourseView> {
                             ? InteractiveViewer(
                                 minScale: 0.5,
                                 maxScale: 4.0,
-                                child: Image.network(
-                                  imageData,
+                                child: _buildResolvedNetworkImage(
+                                  imageRef: imageData,
+                                  width: null,
+                                  height: null,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.white70,
-                                      size: 64),
                                 ),
                               )
                             : const Icon(Icons.broken_image,
@@ -244,7 +302,7 @@ class _CourseViewState extends State<CourseView> {
   }) {
     final imageData = isHoleMap ? _holeMapImages[index] : _teeSignImages[index];
     final isRemoteImage = imageData != null &&
-        (imageData.startsWith('http://') || imageData.startsWith('https://'));
+        (_isHttpUrl(imageData) || _isStorageRef(imageData));
     return SizedBox(
       width: size + 10,
       child: InkWell(
@@ -261,11 +319,11 @@ class _CourseViewState extends State<CourseView> {
               : ClipRRect(
                   borderRadius: BorderRadius.circular(5),
                   child: isRemoteImage
-                      ? Image.network(
-                          imageData,
+                      ? _buildResolvedNetworkImage(
+                          imageRef: imageData,
+                          width: null,
+                          height: null,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.broken_image),
                         )
                       : Builder(
                           builder: (_) {
@@ -304,8 +362,7 @@ class _CourseViewState extends State<CourseView> {
       );
     }
 
-    final isRemoteImage =
-        imageData.startsWith('http://') || imageData.startsWith('https://');
+    final isRemoteImage = _isHttpUrl(imageData) || _isStorageRef(imageData);
 
     try {
       return InkWell(
@@ -313,12 +370,11 @@ class _CourseViewState extends State<CourseView> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: isRemoteImage
-              ? Image.network(
-                  imageData,
+              ? _buildResolvedNetworkImage(
+                  imageRef: imageData,
                   width: size,
                   height: size,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
                 )
               : Builder(
                   builder: (_) {
