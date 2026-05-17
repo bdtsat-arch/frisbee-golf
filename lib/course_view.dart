@@ -22,7 +22,7 @@ class CourseView extends StatefulWidget {
 }
 
 class _CourseViewState extends State<CourseView> {
-  static const double _compactLayoutBreakpoint = 1024;
+  static const double _compactLayoutBreakpoint = 1;
   final TextEditingController _courseNameController = TextEditingController();
   int numHoles = 9;
   final List<TextEditingController> _parControllers = [];
