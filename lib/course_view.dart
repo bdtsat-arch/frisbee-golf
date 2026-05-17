@@ -65,6 +65,13 @@ class _CourseViewState extends State<CourseView> {
     return trimmed.startsWith('gs://') || trimmed.startsWith('users/');
   }
 
+  bool _isBase64Image(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length < 50) return false;
+    // Base64 strings contain only alphanumeric, +, /, and = chars
+    return RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(trimmed);
+  }
+
   Future<Uint8List?> _loadRemoteImageBytes(String imageRef) {
     final cacheKey = imageRef.trim();
     return _remoteImageBytesCache.putIfAbsent(cacheKey, () async {
@@ -103,6 +110,21 @@ class _CourseViewState extends State<CourseView> {
         fit: fit,
         errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
       );
+    }
+
+    // Handle base64-encoded images (fallback when upload fails).
+    if (_isBase64Image(trimmed)) {
+      final bytes = _tryDecodeBase64(trimmed);
+      if (bytes != null) {
+        return Image.memory(
+          bytes,
+          width: width,
+          height: height,
+          fit: fit,
+          gaplessPlayback: true,
+        );
+      }
+      return const Icon(Icons.broken_image);
     }
 
     // For non-http storage references (gs:// or users/), load bytes via SDK.
