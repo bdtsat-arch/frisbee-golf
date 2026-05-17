@@ -34,6 +34,12 @@ class FirestoreService {
     if (course.distanceValues.length != course.numHoles) {
       throw ArgumentError('Distance values count must match number of holes');
     }
+    if (course.holeMapImages.length != course.numHoles) {
+      throw ArgumentError('Hole map images count must match number of holes');
+    }
+    if (course.teeSignImages.length != course.numHoles) {
+      throw ArgumentError('Tee sign images count must match number of holes');
+    }
     for (final par in course.parValues) {
       if (par < 1 || par > 10) {
         throw ArgumentError('Par values must be between 1 and 10');

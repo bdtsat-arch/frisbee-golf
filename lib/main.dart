@@ -20,6 +20,8 @@ class SavedCourse {
   final int numHoles;
   final List<int> parValues;
   final List<int> distanceValues;
+  final List<String?> holeMapImages;
+  final List<String?> teeSignImages;
 
   SavedCourse({
     this.id,
@@ -27,6 +29,8 @@ class SavedCourse {
     required this.numHoles,
     required this.parValues,
     required this.distanceValues,
+    this.holeMapImages = const [],
+    this.teeSignImages = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -34,6 +38,8 @@ class SavedCourse {
         'numHoles': numHoles,
         'parValues': parValues,
         'distanceValues': distanceValues,
+        'holeMapImages': holeMapImages,
+        'teeSignImages': teeSignImages,
       };
 
   factory SavedCourse.fromJson(Map<String, dynamic> json, {String? id}) =>
@@ -43,6 +49,14 @@ class SavedCourse {
         numHoles: json['numHoles'] as int,
         parValues: List<int>.from(json['parValues'] as List<dynamic>),
         distanceValues: List<int>.from(json['distanceValues'] as List<dynamic>),
+        holeMapImages: (json['holeMapImages'] as List<dynamic>?)
+                ?.map((e) => e as String?)
+                .toList() ??
+            List<String?>.filled((json['numHoles'] as int), null),
+        teeSignImages: (json['teeSignImages'] as List<dynamic>?)
+                ?.map((e) => e as String?)
+                .toList() ??
+            List<String?>.filled((json['numHoles'] as int), null),
       );
 
   @override
@@ -53,12 +67,20 @@ class SavedCourse {
         other.name == name &&
         other.numHoles == numHoles &&
         listEquals(other.parValues, parValues) &&
-        listEquals(other.distanceValues, distanceValues);
+      listEquals(other.distanceValues, distanceValues) &&
+      listEquals(other.holeMapImages, holeMapImages) &&
+      listEquals(other.teeSignImages, teeSignImages);
   }
 
   @override
-  int get hashCode => Object.hash(id, name, numHoles, Object.hashAll(parValues),
-      Object.hashAll(distanceValues));
+    int get hashCode => Object.hash(
+      id,
+      name,
+      numHoles,
+      Object.hashAll(parValues),
+      Object.hashAll(distanceValues),
+      Object.hashAll(holeMapImages),
+      Object.hashAll(teeSignImages));
 }
 
 const String kAppVersion = '1.0.0';

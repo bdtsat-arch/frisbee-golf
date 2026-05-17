@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'main.dart';
 
 class CourseView extends StatefulWidget {
@@ -19,10 +22,14 @@ class CourseView extends StatefulWidget {
 }
 
 class _CourseViewState extends State<CourseView> {
+  static const double _compactLayoutBreakpoint = 1024;
   final TextEditingController _courseNameController = TextEditingController();
   int numHoles = 9;
   final List<TextEditingController> _parControllers = [];
   final List<TextEditingController> _distanceControllers = [];
+  final List<String?> _holeMapImages = [];
+  final List<String?> _teeSignImages = [];
+  final ImagePicker _imagePicker = ImagePicker();
   int? _editingCourseIndex;
 
   @override
@@ -47,6 +54,357 @@ class _CourseViewState extends State<CourseView> {
     while (_distanceControllers.length > count) {
       _distanceControllers.removeLast().dispose();
     }
+
+    while (_holeMapImages.length < count) {
+      _holeMapImages.add(null);
+    }
+    while (_holeMapImages.length > count) {
+      _holeMapImages.removeLast();
+    }
+
+    while (_teeSignImages.length < count) {
+      _teeSignImages.add(null);
+    }
+    while (_teeSignImages.length > count) {
+      _teeSignImages.removeLast();
+    }
+  }
+
+  Future<void> _pickImageForHole({
+    required int holeIndex,
+    required bool isHoleMap,
+    required ImageSource source,
+  }) async {
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 75,
+        maxWidth: 1280,
+      );
+      if (picked == null) return;
+
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty) return;
+
+      final encoded = base64Encode(bytes);
+      if (!mounted) return;
+      setState(() {
+        if (isHoleMap) {
+          _holeMapImages[holeIndex] = encoded;
+        } else {
+          _teeSignImages[holeIndex] = encoded;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to pick image from selected source.')),
+      );
+    }
+  }
+
+  Future<void> _showImageSourcePicker(int holeIndex, bool isHoleMap) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Select image source'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Use Camera'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Photo Library'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+    await _pickImageForHole(
+      holeIndex: holeIndex,
+      isHoleMap: isHoleMap,
+      source: source,
+    );
+  }
+
+  void _showImagePreview(String imageData, String title) {
+    Uint8List? bytes;
+    try {
+      bytes = base64Decode(imageData);
+    } catch (_) {
+      bytes = null;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900, maxHeight: 700),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: Container(
+                    color: Colors.black,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    child: bytes == null
+                        ? const Icon(Icons.broken_image,
+                            color: Colors.white70, size: 64)
+                        : InteractiveViewer(
+                            minScale: 0.5,
+                            maxScale: 4.0,
+                            child: Image.memory(
+                              bytes,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImageCell({
+    required int index,
+    required bool isHoleMap,
+  }) {
+    final imageData = isHoleMap ? _holeMapImages[index] : _teeSignImages[index];
+    return SizedBox(
+      width: 64,
+      child: InkWell(
+        onTap: () => _showImageSourcePicker(index, isHoleMap),
+        child: Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: imageData == null
+              ? const Icon(Icons.add_a_photo, size: 20)
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: Image.memory(
+                    base64Decode(imageData),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSavedImageCell(String? imageData, String title) {
+    if (imageData == null || imageData.isEmpty) {
+      return Container(
+        width: 54,
+        height: 54,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          'No image',
+          style: TextStyle(fontSize: 10, color: Colors.grey),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    try {
+      return InkWell(
+        onTap: () => _showImagePreview(imageData, title),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.memory(
+            base64Decode(imageData),
+            width: 54,
+            height: 54,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    } catch (_) {
+      return Container(
+        width: 54,
+        height: 54,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Icon(Icons.broken_image, size: 18, color: Colors.grey),
+      );
+    }
+  }
+
+  String _editorHoleFactor(int index) {
+    final par = int.tryParse(_parControllers[index].text);
+    final distance = int.tryParse(_distanceControllers[index].text);
+    if (par == null || par <= 0 || distance == null) {
+      return '-';
+    }
+    return (distance / par).round().toString();
+  }
+
+  Widget _buildCompactEditorHoleCard(int index) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('Hole ${index + 1}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text('Factor: ${_editorHoleFactor(index)}'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _parControllers[index],
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Par',
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: _distanceControllers[index],
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Distance (ft)',
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text('Hole Map', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            _buildImageCell(index: index, isHoleMap: true),
+            const SizedBox(height: 8),
+            const Text('Tee Sign', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            _buildImageCell(index: index, isHoleMap: false),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactSavedHoleRow(SavedCourse course, int holeIndex) {
+    final par = course.parValues[holeIndex];
+    final distance = course.distanceValues[holeIndex];
+    final factor = par > 0 ? (distance / par).round().toString() : '-';
+    final holeMapImage =
+        holeIndex < course.holeMapImages.length ? course.holeMapImages[holeIndex] : null;
+    final teeSignImage =
+        holeIndex < course.teeSignImages.length ? course.teeSignImages[holeIndex] : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Hole ${holeIndex + 1}',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('Par: $par   Distance: $distance ft   Factor: $factor'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 120,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Hole Map', style: TextStyle(fontSize: 12)),
+                    const SizedBox(height: 4),
+                    _buildSavedImageCell(
+                      holeMapImage,
+                      'Hole Map - ${course.name} - Hole ${holeIndex + 1}',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 120,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Tee Sign', style: TextStyle(fontSize: 12)),
+                    const SizedBox(height: 4),
+                    _buildSavedImageCell(
+                      teeSignImage,
+                      'Tee Sign - ${course.name} - Hole ${holeIndex + 1}',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+        ],
+      ),
+    );
   }
 
   @override
@@ -113,6 +471,8 @@ class _CourseViewState extends State<CourseView> {
       numHoles: numHoles,
       parValues: parValues,
       distanceValues: distanceValues,
+      holeMapImages: List<String?>.from(_holeMapImages),
+      teeSignImages: List<String?>.from(_teeSignImages),
     );
 
     final updatedCourses = List<SavedCourse>.from(widget.savedCourses);
@@ -152,6 +512,12 @@ class _CourseViewState extends State<CourseView> {
     for (var controller in _distanceControllers) {
       controller.clear();
     }
+    for (int i = 0; i < _holeMapImages.length; i++) {
+      _holeMapImages[i] = null;
+    }
+    for (int i = 0; i < _teeSignImages.length; i++) {
+      _teeSignImages[i] = null;
+    }
   }
 
   void _editCourse(int index) {
@@ -166,6 +532,8 @@ class _CourseViewState extends State<CourseView> {
       for (int i = 0; i < course.numHoles; i++) {
         _parControllers[i].text = course.parValues[i].toString();
         _distanceControllers[i].text = course.distanceValues[i].toString();
+        _holeMapImages[i] = i < course.holeMapImages.length ? course.holeMapImages[i] : null;
+        _teeSignImages[i] = i < course.teeSignImages.length ? course.teeSignImages[i] : null;
       }
     });
 
@@ -185,11 +553,19 @@ class _CourseViewState extends State<CourseView> {
       for (var controller in _distanceControllers) {
         controller.clear();
       }
+      for (int i = 0; i < _holeMapImages.length; i++) {
+        _holeMapImages[i] = null;
+      }
+      for (int i = 0; i < _teeSignImages.length; i++) {
+        _teeSignImages[i] = null;
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isCompactLayout =
+        MediaQuery.of(context).size.width < _compactLayoutBreakpoint;
     return Scaffold(
       body: SingleChildScrollView(
         child: Padding(
@@ -249,75 +625,97 @@ class _CourseViewState extends State<CourseView> {
                 ],
               ),
               const SizedBox(height: 20),
-              // Header Row
-              const Row(
-                children: [
-                  SizedBox(width: 60, child: Text('Hole', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: 100, child: Text('Par', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: 100, child: Text('Distance (ft)', style: TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: 100, child: Text('Factor', style: TextStyle(fontWeight: FontWeight.bold))),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Hole entries
-              ...List.generate(numHoles, (index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  child: Row(
+              if (isCompactLayout)
+                Column(
+                  children: List.generate(
+                    numHoles,
+                    (index) => _buildCompactEditorHoleCard(index),
+                  ),
+                )
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: 60,
-                        child: Text('${index + 1}', style: const TextStyle(fontSize: 16)),
+                      // Header Row
+                      const Row(
+                        children: [
+                          SizedBox(width: 60, child: Text('Hole', style: TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(width: 100, child: Text('Par', style: TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(width: 100, child: Text('Distance (ft)', style: TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(width: 100, child: Text('Factor', style: TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(width: 120, child: Text('Hole Map', style: TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(width: 120, child: Text('Tee Sign', style: TextStyle(fontWeight: FontWeight.bold))),
+                        ],
                       ),
-                      SizedBox(
-                        width: 90,
-                        child: TextFormField(
-                          controller: _parControllers[index],
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      const SizedBox(height: 10),
+                      // Hole entries
+                      ...List.generate(numHoles, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 60,
+                                child: Text('${index + 1}', style: const TextStyle(fontSize: 16)),
+                              ),
+                              SizedBox(
+                                width: 90,
+                                child: TextFormField(
+                                  controller: _parControllers[index],
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              SizedBox(
+                                width: 90,
+                                child: TextFormField(
+                                  controller: _distanceControllers[index],
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              SizedBox(
+                                width: 90,
+                                child: Builder(
+                                  builder: (context) {
+                                    final par = int.tryParse(_parControllers[index].text);
+                                    final distance = int.tryParse(_distanceControllers[index].text);
+                                    final factor = (par != null && par > 0 && distance != null)
+                                        ? (distance / par).round().toString()
+                                        : '-';
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(factor, style: const TextStyle(fontSize: 16)),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              _buildImageCell(index: index, isHoleMap: true),
+                              const SizedBox(width: 10),
+                              _buildImageCell(index: index, isHoleMap: false),
+                            ],
                           ),
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 90,
-                        child: TextFormField(
-                          controller: _distanceControllers[index],
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          ),
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 90,
-                        child: Builder(
-                          builder: (context) {
-                            final par = int.tryParse(_parControllers[index].text);
-                            final distance = int.tryParse(_distanceControllers[index].text);
-                            final factor = (par != null && par > 0 && distance != null) 
-                                ? (distance / par).round().toString() 
-                                : '-';
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                              alignment: Alignment.centerLeft,
-                              child: Text(factor, style: const TextStyle(fontSize: 16)),
-                            );
-                          },
-                        ),
-                      ),
+                        );
+                      }),
                     ],
                   ),
-                );
-              }),
+                ),
               const SizedBox(height: 30),
               // Save Button
               ElevatedButton.icon(
@@ -381,32 +779,71 @@ class _CourseViewState extends State<CourseView> {
                           ),
                           const SizedBox(height: 16),
                           // Course details table
-                          Row(
-                            children: [
-                              const SizedBox(width: 60, child: Text('Hole', style: TextStyle(fontWeight: FontWeight.bold))),
-                              const SizedBox(width: 60, child: Text('Par', style: TextStyle(fontWeight: FontWeight.bold))),
-                              const SizedBox(width: 100, child: Text('Distance', style: TextStyle(fontWeight: FontWeight.bold))),
-                              const SizedBox(width: 100, child: Text('Factor', style: TextStyle(fontWeight: FontWeight.bold))),
-                            ],
-                          ),
-                          const Divider(),
-                          // Display each hole
-                          ...List.generate(course.numHoles, (holeIndex) {
-                            final par = course.parValues[holeIndex];
-                            final distance = course.distanceValues[holeIndex];
-                            final factor = par > 0 ? (distance / par).round().toString() : '-';
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0),
-                              child: Row(
+                          if (isCompactLayout)
+                            Column(
+                              children: List.generate(
+                                course.numHoles,
+                                (holeIndex) =>
+                                    _buildCompactSavedHoleRow(course, holeIndex),
+                              ),
+                            )
+                          else
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  SizedBox(width: 60, child: Text('${holeIndex + 1}')),
-                                  SizedBox(width: 60, child: Text('$par')),
-                                  SizedBox(width: 100, child: Text('$distance ft')),
-                                  SizedBox(width: 100, child: Text(factor)),
+                                  Row(
+                                    children: [
+                                      const SizedBox(width: 60, child: Text('Hole', style: TextStyle(fontWeight: FontWeight.bold))),
+                                      const SizedBox(width: 60, child: Text('Par', style: TextStyle(fontWeight: FontWeight.bold))),
+                                      const SizedBox(width: 100, child: Text('Distance', style: TextStyle(fontWeight: FontWeight.bold))),
+                                      const SizedBox(width: 100, child: Text('Factor', style: TextStyle(fontWeight: FontWeight.bold))),
+                                      const SizedBox(width: 110, child: Text('Hole Map', style: TextStyle(fontWeight: FontWeight.bold))),
+                                      const SizedBox(width: 110, child: Text('Tee Sign', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    ],
+                                  ),
+                                  const Divider(),
+                                  // Display each hole
+                                  ...List.generate(course.numHoles, (holeIndex) {
+                                    final par = course.parValues[holeIndex];
+                                    final distance = course.distanceValues[holeIndex];
+                                    final factor = par > 0 ? (distance / par).round().toString() : '-';
+                                    final holeMapImage = holeIndex < course.holeMapImages.length
+                                        ? course.holeMapImages[holeIndex]
+                                        : null;
+                                    final teeSignImage = holeIndex < course.teeSignImages.length
+                                        ? course.teeSignImages[holeIndex]
+                                        : null;
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                      child: Row(
+                                        children: [
+                                          SizedBox(width: 60, child: Text('${holeIndex + 1}')),
+                                          SizedBox(width: 60, child: Text('$par')),
+                                          SizedBox(width: 100, child: Text('$distance ft')),
+                                          SizedBox(width: 100, child: Text(factor)),
+                                          SizedBox(
+                                            width: 110,
+                                            child: _buildSavedImageCell(
+                                              holeMapImage,
+                                              'Hole Map - ${course.name} - Hole ${holeIndex + 1}',
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 110,
+                                            child: _buildSavedImageCell(
+                                              teeSignImage,
+                                              'Tee Sign - ${course.name} - Hole ${holeIndex + 1}',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
                                 ],
                               ),
-                            );
-                          }),
+                            ),
                           const SizedBox(height: 8),
                           // Total par and distance
                           Row(
