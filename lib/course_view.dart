@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import 'main.dart';
 
 class CourseView extends StatefulWidget {
@@ -31,6 +33,23 @@ class _CourseViewState extends State<CourseView> {
   final List<String?> _teeSignImages = [];
   final ImagePicker _imagePicker = ImagePicker();
   int? _editingCourseIndex;
+
+  String _toJpegBase64(Uint8List sourceBytes) {
+    final decoded = img.decodeImage(sourceBytes);
+    if (decoded == null) {
+      throw const FormatException('Unsupported image format');
+    }
+    final jpegBytes = img.encodeJpg(decoded, quality: 85);
+    return base64Encode(jpegBytes);
+  }
+
+  Uint8List? _tryDecodeBase64(String value) {
+    try {
+      return base64Decode(value);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -86,7 +105,7 @@ class _CourseViewState extends State<CourseView> {
       final bytes = await picked.readAsBytes();
       if (bytes.isEmpty) return;
 
-      final encoded = base64Encode(bytes);
+      final encoded = _toJpegBase64(bytes);
       if (!mounted) return;
       setState(() {
         if (isHoleMap) {
@@ -98,7 +117,8 @@ class _CourseViewState extends State<CourseView> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to pick image from selected source.')),
+        const SnackBar(
+            content: Text('Unable to pick image from selected source.')),
       );
     }
   }
@@ -191,9 +211,10 @@ class _CourseViewState extends State<CourseView> {
                                 child: Image.network(
                                   imageData,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.broken_image,
-                                          color: Colors.white70, size: 64),
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.white70,
+                                      size: 64),
                                 ),
                               )
                             : const Icon(Icons.broken_image,
@@ -222,8 +243,7 @@ class _CourseViewState extends State<CourseView> {
     double size = 54,
   }) {
     final imageData = isHoleMap ? _holeMapImages[index] : _teeSignImages[index];
-    final isRemoteImage =
-      imageData != null &&
+    final isRemoteImage = imageData != null &&
         (imageData.startsWith('http://') || imageData.startsWith('https://'));
     return SizedBox(
       width: size + 10,
@@ -247,9 +267,17 @@ class _CourseViewState extends State<CourseView> {
                           errorBuilder: (_, __, ___) =>
                               const Icon(Icons.broken_image),
                         )
-                      : Image.memory(
-                          base64Decode(imageData),
-                          fit: BoxFit.cover,
+                      : Builder(
+                          builder: (_) {
+                            final bytes = _tryDecodeBase64(imageData);
+                            if (bytes == null) {
+                              return const Icon(Icons.broken_image);
+                            }
+                            return Image.memory(
+                              bytes,
+                              fit: BoxFit.cover,
+                            );
+                          },
                         ),
                 ),
         ),
@@ -292,11 +320,19 @@ class _CourseViewState extends State<CourseView> {
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
                 )
-              : Image.memory(
-                  base64Decode(imageData),
-                  width: size,
-                  height: size,
-                  fit: BoxFit.cover,
+              : Builder(
+                  builder: (_) {
+                    final bytes = _tryDecodeBase64(imageData);
+                    if (bytes == null) {
+                      return const Icon(Icons.broken_image);
+                    }
+                    return Image.memory(
+                      bytes,
+                      width: size,
+                      height: size,
+                      fit: BoxFit.cover,
+                    );
+                  },
                 ),
         ),
       );
@@ -343,7 +379,8 @@ class _CourseViewState extends State<CourseView> {
                 isDense: true,
                 hintText: 'P',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 6, vertical: 6),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -359,7 +396,8 @@ class _CourseViewState extends State<CourseView> {
                 isDense: true,
                 hintText: 'Dist',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 6, vertical: 6),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -385,10 +423,12 @@ class _CourseViewState extends State<CourseView> {
     final par = course.parValues[holeIndex];
     final distance = course.distanceValues[holeIndex];
     final factor = par > 0 ? (distance / par).round().toString() : '-';
-    final holeMapImage =
-        holeIndex < course.holeMapImages.length ? course.holeMapImages[holeIndex] : null;
-    final teeSignImage =
-        holeIndex < course.teeSignImages.length ? course.teeSignImages[holeIndex] : null;
+    final holeMapImage = holeIndex < course.holeMapImages.length
+        ? course.holeMapImages[holeIndex]
+        : null;
+    final teeSignImage = holeIndex < course.teeSignImages.length
+        ? course.teeSignImages[holeIndex]
+        : null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -396,13 +436,20 @@ class _CourseViewState extends State<CourseView> {
         children: [
           SizedBox(
               width: 22,
-              child: Text('${holeIndex + 1}', style: const TextStyle(fontSize: 12))),
+              child: Text('${holeIndex + 1}',
+                  style: const TextStyle(fontSize: 12))),
           const SizedBox(width: 6),
-          SizedBox(width: 28, child: Text('$par', style: const TextStyle(fontSize: 12))),
+          SizedBox(
+              width: 28,
+              child: Text('$par', style: const TextStyle(fontSize: 12))),
           const SizedBox(width: 6),
-          SizedBox(width: 56, child: Text('$distance', style: const TextStyle(fontSize: 12))),
+          SizedBox(
+              width: 56,
+              child: Text('$distance', style: const TextStyle(fontSize: 12))),
           const SizedBox(width: 6),
-          SizedBox(width: 28, child: Text(factor, style: const TextStyle(fontSize: 12))),
+          SizedBox(
+              width: 28,
+              child: Text(factor, style: const TextStyle(fontSize: 12))),
           const SizedBox(width: 6),
           _buildSavedImageCell(
             holeMapImage,
@@ -459,7 +506,8 @@ class _CourseViewState extends State<CourseView> {
 
     if (!allFilled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all par and distance values')),
+        const SnackBar(
+            content: Text('Please fill in all par and distance values')),
       );
       return;
     }
@@ -490,20 +538,19 @@ class _CourseViewState extends State<CourseView> {
 
     final updatedCourses = List<SavedCourse>.from(widget.savedCourses);
     String? oldCourseName;
-    
+
     if (_editingCourseIndex != null) {
       // Capture old course name before updating
       oldCourseName = widget.savedCourses[_editingCourseIndex!].name;
       final originalCourse = widget.savedCourses[_editingCourseIndex!];
-      
+
       // Check if Par or Distance values have changed
-      bool parOrDistanceChanged = 
-        originalCourse.parValues != parValues || 
-        originalCourse.distanceValues != distanceValues;
-      
+      bool parOrDistanceChanged = originalCourse.parValues != parValues ||
+          originalCourse.distanceValues != distanceValues;
+
       // Update existing course
       updatedCourses[_editingCourseIndex!] = course;
-      
+
       // Notify parent about the edit for history versioning
       // Only version games if Par or Distance fields have actually changed
       if (parOrDistanceChanged && widget.onCourseEdited != null) {
@@ -513,9 +560,9 @@ class _CourseViewState extends State<CourseView> {
       // Add new course
       updatedCourses.add(course);
     }
-    
+
     widget.onCoursesUpdated(updatedCourses);
-    
+
     setState(() {
       _editingCourseIndex = null;
     });
@@ -542,18 +589,20 @@ class _CourseViewState extends State<CourseView> {
 
   void _editCourse(int index) {
     final course = widget.savedCourses[index];
-    
+
     setState(() {
       _editingCourseIndex = index;
       _courseNameController.text = course.name;
       numHoles = course.numHoles;
       _ensureControllers(numHoles);
-      
+
       for (int i = 0; i < course.numHoles; i++) {
         _parControllers[i].text = course.parValues[i].toString();
         _distanceControllers[i].text = course.distanceValues[i].toString();
-        _holeMapImages[i] = i < course.holeMapImages.length ? course.holeMapImages[i] : null;
-        _teeSignImages[i] = i < course.teeSignImages.length ? course.teeSignImages[i] : null;
+        _holeMapImages[i] =
+            i < course.holeMapImages.length ? course.holeMapImages[i] : null;
+        _teeSignImages[i] =
+            i < course.teeSignImages.length ? course.teeSignImages[i] : null;
       }
     });
 
@@ -597,8 +646,11 @@ class _CourseViewState extends State<CourseView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _editingCourseIndex != null ? 'Edit Course' : 'Add New Course',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    _editingCourseIndex != null
+                        ? 'Edit Course'
+                        : 'Add New Course',
+                    style: const TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   if (_editingCourseIndex != null)
                     TextButton.icon(
@@ -627,7 +679,8 @@ class _CourseViewState extends State<CourseView> {
               // Number of Holes Dropdown
               Row(
                 children: [
-                  const Text('Number of Holes: ', style: TextStyle(fontSize: 16)),
+                  const Text('Number of Holes: ',
+                      style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 10),
                   DropdownButton<int>(
                     value: numHoles,
@@ -651,17 +704,47 @@ class _CourseViewState extends State<CourseView> {
                   children: [
                     const Row(
                       children: [
-                        SizedBox(width: 22, child: Text('H', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(
+                            width: 22,
+                            child: Text('H',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold))),
                         SizedBox(width: 6),
-                        SizedBox(width: 42, child: Text('Par', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(
+                            width: 42,
+                            child: Text('Par',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold))),
                         SizedBox(width: 6),
-                        SizedBox(width: 68, child: Text('Dist', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(
+                            width: 68,
+                            child: Text('Dist',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold))),
                         SizedBox(width: 6),
-                        SizedBox(width: 28, child: Text('F', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(
+                            width: 28,
+                            child: Text('F',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold))),
                         SizedBox(width: 6),
-                        SizedBox(width: 50, child: Text('Map', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(
+                            width: 50,
+                            child: Text('Map',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold))),
                         SizedBox(width: 6),
-                        SizedBox(width: 50, child: Text('Tee', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(
+                            width: 50,
+                            child: Text('Tee',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -680,12 +763,36 @@ class _CourseViewState extends State<CourseView> {
                       // Header Row
                       const Row(
                         children: [
-                          SizedBox(width: 60, child: Text('Hole', style: TextStyle(fontWeight: FontWeight.bold))),
-                          SizedBox(width: 100, child: Text('Par', style: TextStyle(fontWeight: FontWeight.bold))),
-                          SizedBox(width: 100, child: Text('Distance (ft)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          SizedBox(width: 100, child: Text('Factor', style: TextStyle(fontWeight: FontWeight.bold))),
-                          SizedBox(width: 120, child: Text('Hole Map', style: TextStyle(fontWeight: FontWeight.bold))),
-                          SizedBox(width: 120, child: Text('Tee Sign', style: TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(
+                              width: 60,
+                              child: Text('Hole',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(
+                              width: 100,
+                              child: Text('Par',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(
+                              width: 100,
+                              child: Text('Distance (ft)',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(
+                              width: 100,
+                              child: Text('Factor',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(
+                              width: 120,
+                              child: Text('Hole Map',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
+                          SizedBox(
+                              width: 120,
+                              child: Text('Tee Sign',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold))),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -697,17 +804,21 @@ class _CourseViewState extends State<CourseView> {
                             children: [
                               SizedBox(
                                 width: 60,
-                                child: Text('${index + 1}', style: const TextStyle(fontSize: 16)),
+                                child: Text('${index + 1}',
+                                    style: const TextStyle(fontSize: 16)),
                               ),
                               SizedBox(
                                 width: 90,
                                 child: TextFormField(
                                   controller: _parControllers[index],
                                   keyboardType: TextInputType.number,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
                                   decoration: const InputDecoration(
                                     border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 8),
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
@@ -718,10 +829,13 @@ class _CourseViewState extends State<CourseView> {
                                 child: TextFormField(
                                   controller: _distanceControllers[index],
                                   keyboardType: TextInputType.number,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
                                   decoration: const InputDecoration(
                                     border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 8),
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
@@ -731,15 +845,21 @@ class _CourseViewState extends State<CourseView> {
                                 width: 90,
                                 child: Builder(
                                   builder: (context) {
-                                    final par = int.tryParse(_parControllers[index].text);
-                                    final distance = int.tryParse(_distanceControllers[index].text);
-                                    final factor = (par != null && par > 0 && distance != null)
+                                    final par = int.tryParse(
+                                        _parControllers[index].text);
+                                    final distance = int.tryParse(
+                                        _distanceControllers[index].text);
+                                    final factor = (par != null &&
+                                            par > 0 &&
+                                            distance != null)
                                         ? (distance / par).round().toString()
                                         : '-';
                                     return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 12),
                                       alignment: Alignment.centerLeft,
-                                      child: Text(factor, style: const TextStyle(fontSize: 16)),
+                                      child: Text(factor,
+                                          style: const TextStyle(fontSize: 16)),
                                     );
                                   },
                                 ),
@@ -760,9 +880,12 @@ class _CourseViewState extends State<CourseView> {
               ElevatedButton.icon(
                 onPressed: _saveCourse,
                 icon: const Icon(Icons.save),
-                label: Text(_editingCourseIndex != null ? 'Update Course' : 'Save Course'),
+                label: Text(_editingCourseIndex != null
+                    ? 'Update Course'
+                    : 'Save Course'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
               ),
               const SizedBox(height: 40),
@@ -777,157 +900,251 @@ class _CourseViewState extends State<CourseView> {
                 const SizedBox(height: 20),
                 // Display each saved course (sorted alphabetically)
                 ...() {
-                  final sortedCourses = List<SavedCourse>.from(widget.savedCourses)
-                    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                  final sortedCourses = List<SavedCourse>.from(
+                      widget.savedCourses)
+                    ..sort((a, b) =>
+                        a.name.toLowerCase().compareTo(b.name.toLowerCase()));
                   return List.generate(sortedCourses.length, (courseIndex) {
                     final course = sortedCourses[courseIndex];
                     final originalIndex = widget.savedCourses.indexOf(course);
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 20),
-                    elevation: 4,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Course Header with Edit button
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Course Header with Edit button
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        course.name,
+                                        style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        '${course.numHoles} holes',
+                                        style: const TextStyle(
+                                            fontSize: 16, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit,
+                                      color: Colors.orange),
+                                  onPressed: () => _editCourse(originalIndex),
+                                  tooltip: 'Edit Course',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Course details table
+                            if (isCompactLayout)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      SizedBox(
+                                          width: 22,
+                                          child: Text('H',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold))),
+                                      SizedBox(width: 6),
+                                      SizedBox(
+                                          width: 28,
+                                          child: Text('Par',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold))),
+                                      SizedBox(width: 6),
+                                      SizedBox(
+                                          width: 56,
+                                          child: Text('Dist',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold))),
+                                      SizedBox(width: 6),
+                                      SizedBox(
+                                          width: 28,
+                                          child: Text('F',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold))),
+                                      SizedBox(width: 6),
+                                      SizedBox(
+                                          width: 40,
+                                          child: Text('Map',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold))),
+                                      SizedBox(width: 6),
+                                      SizedBox(
+                                          width: 40,
+                                          child: Text('Tee',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold))),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ...List.generate(
+                                    course.numHoles,
+                                    (holeIndex) => _buildCompactSavedHoleRow(
+                                        course, holeIndex),
+                                  ),
+                                ],
+                              )
+                            else
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      course.name,
-                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                    Row(
+                                      children: [
+                                        const SizedBox(
+                                            width: 60,
+                                            child: Text('Hole',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold))),
+                                        const SizedBox(
+                                            width: 60,
+                                            child: Text('Par',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold))),
+                                        const SizedBox(
+                                            width: 100,
+                                            child: Text('Distance',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold))),
+                                        const SizedBox(
+                                            width: 100,
+                                            child: Text('Factor',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold))),
+                                        const SizedBox(
+                                            width: 110,
+                                            child: Text('Hole Map',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold))),
+                                        const SizedBox(
+                                            width: 110,
+                                            child: Text('Tee Sign',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold))),
+                                      ],
                                     ),
-                                    Text(
-                                      '${course.numHoles} holes',
-                                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                                    ),
+                                    const Divider(),
+                                    // Display each hole
+                                    ...List.generate(course.numHoles,
+                                        (holeIndex) {
+                                      final par = course.parValues[holeIndex];
+                                      final distance =
+                                          course.distanceValues[holeIndex];
+                                      final factor = par > 0
+                                          ? (distance / par).round().toString()
+                                          : '-';
+                                      final holeMapImage = holeIndex <
+                                              course.holeMapImages.length
+                                          ? course.holeMapImages[holeIndex]
+                                          : null;
+                                      final teeSignImage = holeIndex <
+                                              course.teeSignImages.length
+                                          ? course.teeSignImages[holeIndex]
+                                          : null;
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 4.0),
+                                        child: Row(
+                                          children: [
+                                            SizedBox(
+                                                width: 60,
+                                                child:
+                                                    Text('${holeIndex + 1}')),
+                                            SizedBox(
+                                                width: 60, child: Text('$par')),
+                                            SizedBox(
+                                                width: 100,
+                                                child: Text('$distance ft')),
+                                            SizedBox(
+                                                width: 100,
+                                                child: Text(factor)),
+                                            SizedBox(
+                                              width: 110,
+                                              child: _buildSavedImageCell(
+                                                holeMapImage,
+                                                'Hole Map - ${course.name} - Hole ${holeIndex + 1}',
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: 110,
+                                              child: _buildSavedImageCell(
+                                                teeSignImage,
+                                                'Tee Sign - ${course.name} - Hole ${holeIndex + 1}',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.orange),
-                                onPressed: () => _editCourse(originalIndex),
-                                tooltip: 'Edit Course',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Course details table
-                          if (isCompactLayout)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            const SizedBox(height: 8),
+                            // Total par and distance
+                            Row(
                               children: [
-                                const Row(
-                                  children: [
-                                    SizedBox(width: 22, child: Text('H', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                    SizedBox(width: 6),
-                                    SizedBox(width: 28, child: Text('Par', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                    SizedBox(width: 6),
-                                    SizedBox(width: 56, child: Text('Dist', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                    SizedBox(width: 6),
-                                    SizedBox(width: 28, child: Text('F', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                    SizedBox(width: 6),
-                                    SizedBox(width: 40, child: Text('Map', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                    SizedBox(width: 6),
-                                    SizedBox(width: 40, child: Text('Tee', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                  ],
+                                const SizedBox(
+                                    width: 60,
+                                    child: Text('Total',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold))),
+                                SizedBox(
+                                  width: 60,
+                                  child: Text(
+                                    '${course.parValues.reduce((a, b) => a + b)}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
                                 ),
-                                const SizedBox(height: 6),
-                                ...List.generate(
-                                  course.numHoles,
-                                  (holeIndex) =>
-                                      _buildCompactSavedHoleRow(course, holeIndex),
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(
+                                    '${course.distanceValues.reduce((a, b) => a + b)} ft',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
                                 ),
                               ],
-                            )
-                          else
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const SizedBox(width: 60, child: Text('Hole', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      const SizedBox(width: 60, child: Text('Par', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      const SizedBox(width: 100, child: Text('Distance', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      const SizedBox(width: 100, child: Text('Factor', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      const SizedBox(width: 110, child: Text('Hole Map', style: TextStyle(fontWeight: FontWeight.bold))),
-                                      const SizedBox(width: 110, child: Text('Tee Sign', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    ],
-                                  ),
-                                  const Divider(),
-                                  // Display each hole
-                                  ...List.generate(course.numHoles, (holeIndex) {
-                                    final par = course.parValues[holeIndex];
-                                    final distance = course.distanceValues[holeIndex];
-                                    final factor = par > 0 ? (distance / par).round().toString() : '-';
-                                    final holeMapImage = holeIndex < course.holeMapImages.length
-                                        ? course.holeMapImages[holeIndex]
-                                        : null;
-                                    final teeSignImage = holeIndex < course.teeSignImages.length
-                                        ? course.teeSignImages[holeIndex]
-                                        : null;
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                      child: Row(
-                                        children: [
-                                          SizedBox(width: 60, child: Text('${holeIndex + 1}')),
-                                          SizedBox(width: 60, child: Text('$par')),
-                                          SizedBox(width: 100, child: Text('$distance ft')),
-                                          SizedBox(width: 100, child: Text(factor)),
-                                          SizedBox(
-                                            width: 110,
-                                            child: _buildSavedImageCell(
-                                              holeMapImage,
-                                              'Hole Map - ${course.name} - Hole ${holeIndex + 1}',
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width: 110,
-                                            child: _buildSavedImageCell(
-                                              teeSignImage,
-                                              'Tee Sign - ${course.name} - Hole ${holeIndex + 1}',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }),
-                                ],
-                              ),
                             ),
-                          const SizedBox(height: 8),
-                          // Total par and distance
-                          Row(
-                            children: [
-                              const SizedBox(width: 60, child: Text('Total', style: TextStyle(fontWeight: FontWeight.bold))),
-                              SizedBox(
-                                width: 60,
-                                child: Text(
-                                  '${course.parValues.reduce((a, b) => a + b)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 100,
-                                child: Text(
-                                  '${course.distanceValues.reduce((a, b) => a + b)} ft',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                });
+                    );
+                  });
                 }(),
               ],
             ],
