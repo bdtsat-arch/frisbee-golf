@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -26,6 +27,7 @@ class CourseView extends StatefulWidget {
 
 class _CourseViewState extends State<CourseView> {
   static const double _compactLayoutBreakpoint = 900;
+  static const int _maxRemoteImageBytes = 8 * 1024 * 1024;
   final TextEditingController _courseNameController = TextEditingController();
   int numHoles = 9;
   final List<TextEditingController> _parControllers = [];
@@ -33,6 +35,7 @@ class _CourseViewState extends State<CourseView> {
   final List<String?> _holeMapImages = [];
   final List<String?> _teeSignImages = [];
   final ImagePicker _imagePicker = ImagePicker();
+  final Map<String, Future<Uint8List?>> _remoteImageBytesCache = {};
   int? _editingCourseIndex;
 
   String _toJpegBase64(Uint8List sourceBytes) {
@@ -62,33 +65,56 @@ class _CourseViewState extends State<CourseView> {
     return trimmed.startsWith('gs://') || trimmed.startsWith('users/');
   }
 
-  Future<String?> _resolveDownloadUrl(String imageRef) async {
-    final trimmed = imageRef.trim();
-    if (_isHttpUrl(trimmed)) {
-      return trimmed;
-    }
-
-    if (trimmed.startsWith('gs://')) {
-      return FirebaseStorage.instance.refFromURL(trimmed).getDownloadURL();
-    }
-
-    if (trimmed.startsWith('users/')) {
-      return FirebaseStorage.instance.ref().child(trimmed).getDownloadURL();
-    }
-
-    return null;
+  bool _isFirebaseDownloadUrl(String value) {
+    final trimmed = value.trim();
+    if (!_isHttpUrl(trimmed)) return false;
+    return trimmed.contains('firebasestorage.googleapis.com') ||
+        trimmed.contains('storage.googleapis.com') ||
+        trimmed.contains('firebasestorage.app');
   }
 
-  Widget _buildResolvedNetworkImage({
+  Future<Uint8List?> _loadRemoteImageBytes(String imageRef) {
+    final cacheKey = imageRef.trim();
+    return _remoteImageBytesCache.putIfAbsent(cacheKey, () async {
+      try {
+        late final Reference ref;
+        if (cacheKey.startsWith('users/')) {
+          ref = FirebaseStorage.instance.ref().child(cacheKey);
+        } else {
+          ref = FirebaseStorage.instance.refFromURL(cacheKey);
+        }
+        return await ref.getData(_maxRemoteImageBytes);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('Thumbnail load failed for "$cacheKey": $e');
+        }
+        return null;
+      }
+    });
+  }
+
+  Widget _buildResolvedRemoteImage({
     required String imageRef,
     required double? width,
     required double? height,
     required BoxFit fit,
   }) {
-    return FutureBuilder<String?>(
-      future: _resolveDownloadUrl(imageRef),
+    final trimmed = imageRef.trim();
+
+    // For non-Firebase http(s) URLs, render directly.
+    if (_isHttpUrl(trimmed) && !_isFirebaseDownloadUrl(trimmed)) {
+      return Image.network(
+        trimmed,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+      );
+    }
+
+    return FutureBuilder<Uint8List?>(
+      future: _loadRemoteImageBytes(trimmed),
       builder: (context, snapshot) {
-        final url = snapshot.data;
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(
             child: SizedBox(
@@ -98,15 +124,16 @@ class _CourseViewState extends State<CourseView> {
             ),
           );
         }
-        if (url == null || url.isEmpty) {
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) {
           return const Icon(Icons.broken_image);
         }
-        return Image.network(
-          url,
+        return Image.memory(
+          bytes,
           width: width,
           height: height,
           fit: fit,
-          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+          gaplessPlayback: true,
         );
       },
     );
@@ -268,7 +295,7 @@ class _CourseViewState extends State<CourseView> {
                             ? InteractiveViewer(
                                 minScale: 0.5,
                                 maxScale: 4.0,
-                                child: _buildResolvedNetworkImage(
+                                child: _buildResolvedRemoteImage(
                                   imageRef: imageData,
                                   width: null,
                                   height: null,
@@ -319,7 +346,7 @@ class _CourseViewState extends State<CourseView> {
               : ClipRRect(
                   borderRadius: BorderRadius.circular(5),
                   child: isRemoteImage
-                      ? _buildResolvedNetworkImage(
+                      ? _buildResolvedRemoteImage(
                           imageRef: imageData,
                           width: null,
                           height: null,
@@ -370,7 +397,7 @@ class _CourseViewState extends State<CourseView> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: isRemoteImage
-              ? _buildResolvedNetworkImage(
+              ? _buildResolvedRemoteImage(
                   imageRef: imageData,
                   width: size,
                   height: size,
