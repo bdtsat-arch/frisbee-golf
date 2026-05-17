@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image/image.dart' as img;
 import '../history_view.dart';
 import '../main.dart';
 
@@ -86,6 +88,14 @@ class FirestoreService {
     return value.startsWith('http://') || value.startsWith('https://');
   }
 
+  Uint8List _ensureJpegBytes(Uint8List sourceBytes) {
+    final decoded = img.decodeImage(sourceBytes);
+    if (decoded == null) {
+      throw const FormatException('Selected image data is invalid');
+    }
+    return Uint8List.fromList(img.encodeJpg(decoded, quality: 85));
+  }
+
   Future<String?> _uploadImageIfNeeded({
     required String? imageRef,
     required String courseKey,
@@ -102,6 +112,7 @@ class FirestoreService {
 
     try {
       final bytes = base64Decode(imageRef);
+      final jpegBytes = _ensureJpegBytes(bytes);
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${holeIndex + 1}.jpg';
       final ref = _storage
@@ -109,7 +120,7 @@ class FirestoreService {
           .child('users/$uid/courses/$courseKey/$imageType/$fileName');
 
       await ref.putData(
-        bytes,
+        jpegBytes,
         SettableMetadata(contentType: 'image/jpeg'),
       );
 
