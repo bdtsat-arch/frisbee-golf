@@ -137,11 +137,15 @@ class _CourseViewState extends State<CourseView> {
   }
 
   void _showImagePreview(String imageData, String title) {
+    final isRemote =
+        imageData.startsWith('http://') || imageData.startsWith('https://');
     Uint8List? bytes;
-    try {
-      bytes = base64Decode(imageData);
-    } catch (_) {
-      bytes = null;
+    if (!isRemote) {
+      try {
+        bytes = base64Decode(imageData);
+      } catch (_) {
+        bytes = null;
+      }
     }
 
     showDialog<void>(
@@ -180,8 +184,20 @@ class _CourseViewState extends State<CourseView> {
                     width: double.infinity,
                     alignment: Alignment.center,
                     child: bytes == null
-                        ? const Icon(Icons.broken_image,
-                            color: Colors.white70, size: 64)
+                        ? (isRemote
+                            ? InteractiveViewer(
+                                minScale: 0.5,
+                                maxScale: 4.0,
+                                child: Image.network(
+                                  imageData,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.broken_image,
+                                          color: Colors.white70, size: 64),
+                                ),
+                              )
+                            : const Icon(Icons.broken_image,
+                                color: Colors.white70, size: 64))
                         : InteractiveViewer(
                             minScale: 0.5,
                             maxScale: 4.0,
@@ -206,6 +222,9 @@ class _CourseViewState extends State<CourseView> {
     double size = 54,
   }) {
     final imageData = isHoleMap ? _holeMapImages[index] : _teeSignImages[index];
+    final isRemoteImage =
+      imageData != null &&
+        (imageData.startsWith('http://') || imageData.startsWith('https://'));
     return SizedBox(
       width: size + 10,
       child: InkWell(
@@ -221,10 +240,17 @@ class _CourseViewState extends State<CourseView> {
               ? Icon(Icons.add_a_photo, size: size * 0.36)
               : ClipRRect(
                   borderRadius: BorderRadius.circular(5),
-                  child: Image.memory(
-                    base64Decode(imageData),
-                    fit: BoxFit.cover,
-                  ),
+                  child: isRemoteImage
+                      ? Image.network(
+                          imageData,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.broken_image),
+                        )
+                      : Image.memory(
+                          base64Decode(imageData),
+                          fit: BoxFit.cover,
+                        ),
                 ),
         ),
       ),
@@ -250,17 +276,28 @@ class _CourseViewState extends State<CourseView> {
       );
     }
 
+    final isRemoteImage =
+        imageData.startsWith('http://') || imageData.startsWith('https://');
+
     try {
       return InkWell(
         onTap: () => _showImagePreview(imageData, title),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(6),
-          child: Image.memory(
-            base64Decode(imageData),
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-          ),
+          child: isRemoteImage
+              ? Image.network(
+                  imageData,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+                )
+              : Image.memory(
+                  base64Decode(imageData),
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                ),
         ),
       );
     } catch (_) {

@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:convert';
 import '../history_view.dart';
 import '../main.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   final String uid;
 
   FirestoreService({required this.uid});
@@ -78,6 +81,86 @@ class FirestoreService {
     }
   }
 
+  bool _isRemoteImageRef(String? value) {
+    if (value == null || value.isEmpty) return false;
+    return value.startsWith('http://') || value.startsWith('https://');
+  }
+
+  Future<String?> _uploadImageIfNeeded({
+    required String? imageRef,
+    required String courseKey,
+    required String imageType,
+    required int holeIndex,
+  }) async {
+    if (imageRef == null || imageRef.isEmpty) {
+      return null;
+    }
+
+    if (_isRemoteImageRef(imageRef)) {
+      return imageRef;
+    }
+
+    try {
+      final bytes = base64Decode(imageRef);
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${holeIndex + 1}.jpg';
+      final ref = _storage
+          .ref()
+          .child('users/$uid/courses/$courseKey/$imageType/$fileName');
+
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      return await ref.getDownloadURL();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Image upload failed ($imageType hole ${holeIndex + 1}): $e');
+      }
+      return imageRef;
+    }
+  }
+
+  Future<SavedCourse> _persistCourseImages(SavedCourse course) async {
+    final courseKey =
+        course.id ?? 'tmp_${DateTime.now().millisecondsSinceEpoch}';
+
+    final uploadedHoleMaps = <String?>[];
+    for (int i = 0; i < course.holeMapImages.length; i++) {
+      uploadedHoleMaps.add(
+        await _uploadImageIfNeeded(
+          imageRef: course.holeMapImages[i],
+          courseKey: courseKey,
+          imageType: 'hole_map',
+          holeIndex: i,
+        ),
+      );
+    }
+
+    final uploadedTeeSigns = <String?>[];
+    for (int i = 0; i < course.teeSignImages.length; i++) {
+      uploadedTeeSigns.add(
+        await _uploadImageIfNeeded(
+          imageRef: course.teeSignImages[i],
+          courseKey: courseKey,
+          imageType: 'tee_sign',
+          holeIndex: i,
+        ),
+      );
+    }
+
+    return SavedCourse(
+      id: course.id,
+      name: course.name,
+      numHoles: course.numHoles,
+      parValues: course.parValues,
+      distanceValues: course.distanceValues,
+      holeMapImages: uploadedHoleMaps,
+      teeSignImages: uploadedTeeSigns,
+    );
+  }
+
   Stream<List<GameHistory>> getGames() {
     return _gamesCollection
         .orderBy('date', descending: true)
@@ -91,8 +174,9 @@ class FirestoreService {
 
   Future<void> saveCourse(SavedCourse course) async {
     try {
-      _validateCourse(course);
-      await _coursesCollection.add(course.toJson());
+      final preparedCourse = await _persistCourseImages(course);
+      _validateCourse(preparedCourse);
+      await _coursesCollection.add(preparedCourse.toJson());
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Course validation error: $e');
@@ -115,9 +199,10 @@ class FirestoreService {
   
   Future<void> updateCourse(SavedCourse course) async {
     try {
-      _validateCourse(course);
+      final preparedCourse = await _persistCourseImages(course);
+      _validateCourse(preparedCourse);
       if (course.id != null) {
-        await _coursesCollection.doc(course.id).set(course.toJson());
+        await _coursesCollection.doc(course.id).set(preparedCourse.toJson());
       }
     } catch (e) {
       if (kDebugMode) {
