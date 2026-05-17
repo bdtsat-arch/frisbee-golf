@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate build info
+        run: bash scripts/gen_build_info.sh
+
       - name: Build Flutter web app
         run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
 

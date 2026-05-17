@@ -10,7 +10,11 @@ BUILD_NUMBER=$(cat "$BUILD_NUMBER_FILE" 2>/dev/null || echo "1")
 BUILD_NUMBER=$((BUILD_NUMBER + 1))
 echo "$BUILD_NUMBER" > "$BUILD_NUMBER_FILE"
 
-HASH=$(git -C "$SCRIPT_DIR/.." rev-parse --short HEAD 2>/dev/null || echo "unknown")
+if [[ -n "$GITHUB_SHA" ]]; then
+	HASH="${GITHUB_SHA:0:7}"
+else
+	HASH=$(git -C "$SCRIPT_DIR/.." rev-parse --short HEAD 2>/dev/null || echo "unknown")
+fi
 TIMESTAMP=$(date -u "+%Y-%m-%d %H:%M UTC")
 
 cat > "$SCRIPT_DIR/../lib/build_info.dart" <<EOF
