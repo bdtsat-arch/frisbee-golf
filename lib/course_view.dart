@@ -22,7 +22,7 @@ class CourseView extends StatefulWidget {
 }
 
 class _CourseViewState extends State<CourseView> {
-  static const double _compactLayoutBreakpoint = 1;
+  static const double _compactLayoutBreakpoint = 900;
   final TextEditingController _courseNameController = TextEditingController();
   int numHoles = 9;
   final List<TextEditingController> _parControllers = [];
@@ -310,25 +310,27 @@ class _CourseViewState extends State<CourseView> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
+                      isDense: true,
                       labelText: 'Par',
                       border: OutlineInputBorder(),
                       contentPadding:
-                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextFormField(
                     controller: _distanceControllers[index],
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
+                      isDense: true,
                       labelText: 'Distance (ft)',
                       border: OutlineInputBorder(),
                       contentPadding:
-                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -569,7 +571,7 @@ class _CourseViewState extends State<CourseView> {
     return Scaffold(
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(isCompactLayout ? 12.0 : 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
