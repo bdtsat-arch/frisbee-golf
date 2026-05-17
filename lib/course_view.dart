@@ -494,12 +494,19 @@ class _CourseViewState extends State<CourseView> {
     if (_editingCourseIndex != null) {
       // Capture old course name before updating
       oldCourseName = widget.savedCourses[_editingCourseIndex!].name;
+      final originalCourse = widget.savedCourses[_editingCourseIndex!];
+      
+      // Check if Par or Distance values have changed
+      bool parOrDistanceChanged = 
+        originalCourse.parValues != parValues || 
+        originalCourse.distanceValues != distanceValues;
+      
       // Update existing course
       updatedCourses[_editingCourseIndex!] = course;
       
       // Notify parent about the edit for history versioning
-      // This versions all games with the old course name when ANY course property is edited
-      if (widget.onCourseEdited != null) {
+      // Only version games if Par or Distance fields have actually changed
+      if (parOrDistanceChanged && widget.onCourseEdited != null) {
         widget.onCourseEdited!(oldCourseName, course.name);
       }
     } else {
