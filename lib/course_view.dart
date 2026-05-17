@@ -65,14 +65,6 @@ class _CourseViewState extends State<CourseView> {
     return trimmed.startsWith('gs://') || trimmed.startsWith('users/');
   }
 
-  bool _isFirebaseDownloadUrl(String value) {
-    final trimmed = value.trim();
-    if (!_isHttpUrl(trimmed)) return false;
-    return trimmed.contains('firebasestorage.googleapis.com') ||
-        trimmed.contains('storage.googleapis.com') ||
-        trimmed.contains('firebasestorage.app');
-  }
-
   Future<Uint8List?> _loadRemoteImageBytes(String imageRef) {
     final cacheKey = imageRef.trim();
     return _remoteImageBytesCache.putIfAbsent(cacheKey, () async {
@@ -101,8 +93,9 @@ class _CourseViewState extends State<CourseView> {
   }) {
     final trimmed = imageRef.trim();
 
-    // For non-Firebase http(s) URLs, render directly.
-    if (_isHttpUrl(trimmed) && !_isFirebaseDownloadUrl(trimmed)) {
+    // For all http(s) URLs (Firebase or otherwise), render directly using Image.network.
+    // This is more reliable on web for download URLs and handles CORS properly.
+    if (_isHttpUrl(trimmed)) {
       return Image.network(
         trimmed,
         width: width,
@@ -112,6 +105,7 @@ class _CourseViewState extends State<CourseView> {
       );
     }
 
+    // For non-http storage references (gs:// or users/), load bytes via SDK.
     return FutureBuilder<Uint8List?>(
       future: _loadRemoteImageBytes(trimmed),
       builder: (context, snapshot) {
