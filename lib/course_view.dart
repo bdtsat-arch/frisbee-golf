@@ -203,21 +203,22 @@ class _CourseViewState extends State<CourseView> {
   Widget _buildImageCell({
     required int index,
     required bool isHoleMap,
+    double size = 54,
   }) {
     final imageData = isHoleMap ? _holeMapImages[index] : _teeSignImages[index];
     return SizedBox(
-      width: 64,
+      width: size + 10,
       child: InkWell(
         onTap: () => _showImageSourcePicker(index, isHoleMap),
         child: Container(
-          width: 54,
-          height: 54,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade400),
             borderRadius: BorderRadius.circular(6),
           ),
           child: imageData == null
-              ? const Icon(Icons.add_a_photo, size: 20)
+              ? Icon(Icons.add_a_photo, size: size * 0.36)
               : ClipRRect(
                   borderRadius: BorderRadius.circular(5),
                   child: Image.memory(
@@ -230,19 +231,20 @@ class _CourseViewState extends State<CourseView> {
     );
   }
 
-  Widget _buildSavedImageCell(String? imageData, String title) {
+  Widget _buildSavedImageCell(String? imageData, String title,
+      {double size = 54}) {
     if (imageData == null || imageData.isEmpty) {
       return Container(
-        width: 54,
-        height: 54,
+        width: size,
+        height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: const Text(
+        child: Text(
           'No image',
-          style: TextStyle(fontSize: 10, color: Colors.grey),
+          style: TextStyle(fontSize: size < 45 ? 8 : 10, color: Colors.grey),
           textAlign: TextAlign.center,
         ),
       );
@@ -255,16 +257,16 @@ class _CourseViewState extends State<CourseView> {
           borderRadius: BorderRadius.circular(6),
           child: Image.memory(
             base64Decode(imageData),
-            width: 54,
-            height: 54,
+            width: size,
+            height: size,
             fit: BoxFit.cover,
           ),
         ),
       );
     } catch (_) {
       return Container(
-        width: 54,
-        height: 54,
+        width: size,
+        height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
@@ -285,68 +287,59 @@ class _CourseViewState extends State<CourseView> {
   }
 
   Widget _buildCompactEditorHoleCard(int index) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('Hole ${index + 1}',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                Text('Factor: ${_editorHoleFactor(index)}'),
-              ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 22,
+            child: Text('${index + 1}', style: const TextStyle(fontSize: 12)),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 42,
+            child: TextFormField(
+              controller: _parControllers[index],
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'P',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              ),
+              onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _parControllers[index],
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      labelText: 'Par',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: _distanceControllers[index],
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      labelText: 'Distance (ft)',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-              ],
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 68,
+            child: TextFormField(
+              controller: _distanceControllers[index],
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Dist',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              ),
+              onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 10),
-            const Text('Hole Map', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            _buildImageCell(index: index, isHoleMap: true),
-            const SizedBox(height: 8),
-            const Text('Tee Sign', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            _buildImageCell(index: index, isHoleMap: false),
-          ],
-        ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 28,
+            child: Text(
+              _editorHoleFactor(index),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          const SizedBox(width: 6),
+          _buildImageCell(index: index, isHoleMap: true, size: 40),
+          const SizedBox(width: 6),
+          _buildImageCell(index: index, isHoleMap: false, size: 40),
+        ],
       ),
     );
   }
@@ -361,49 +354,30 @@ class _CourseViewState extends State<CourseView> {
         holeIndex < course.teeSignImages.length ? course.teeSignImages[holeIndex] : null;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
         children: [
-          Text('Hole ${holeIndex + 1}',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text('Par: $par   Distance: $distance ft   Factor: $factor'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              SizedBox(
-                width: 120,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Hole Map', style: TextStyle(fontSize: 12)),
-                    const SizedBox(height: 4),
-                    _buildSavedImageCell(
-                      holeMapImage,
-                      'Hole Map - ${course.name} - Hole ${holeIndex + 1}',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 120,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Tee Sign', style: TextStyle(fontSize: 12)),
-                    const SizedBox(height: 4),
-                    _buildSavedImageCell(
-                      teeSignImage,
-                      'Tee Sign - ${course.name} - Hole ${holeIndex + 1}',
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          SizedBox(
+              width: 22,
+              child: Text('${holeIndex + 1}', style: const TextStyle(fontSize: 12))),
+          const SizedBox(width: 6),
+          SizedBox(width: 28, child: Text('$par', style: const TextStyle(fontSize: 12))),
+          const SizedBox(width: 6),
+          SizedBox(width: 56, child: Text('$distance', style: const TextStyle(fontSize: 12))),
+          const SizedBox(width: 6),
+          SizedBox(width: 28, child: Text(factor, style: const TextStyle(fontSize: 12))),
+          const SizedBox(width: 6),
+          _buildSavedImageCell(
+            holeMapImage,
+            'Hole Map - ${course.name} - Hole ${holeIndex + 1}',
+            size: 40,
           ),
-          const Divider(height: 20),
+          const SizedBox(width: 6),
+          _buildSavedImageCell(
+            teeSignImage,
+            'Tee Sign - ${course.name} - Hole ${holeIndex + 1}',
+            size: 40,
+          ),
         ],
       ),
     );
@@ -629,10 +603,29 @@ class _CourseViewState extends State<CourseView> {
               const SizedBox(height: 20),
               if (isCompactLayout)
                 Column(
-                  children: List.generate(
-                    numHoles,
-                    (index) => _buildCompactEditorHoleCard(index),
-                  ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        SizedBox(width: 22, child: Text('H', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(width: 6),
+                        SizedBox(width: 42, child: Text('Par', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(width: 6),
+                        SizedBox(width: 68, child: Text('Dist', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(width: 6),
+                        SizedBox(width: 28, child: Text('F', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(width: 6),
+                        SizedBox(width: 50, child: Text('Map', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                        SizedBox(width: 6),
+                        SizedBox(width: 50, child: Text('Tee', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ...List.generate(
+                      numHoles,
+                      (index) => _buildCompactEditorHoleCard(index),
+                    ),
+                  ],
                 )
               else
                 SingleChildScrollView(
@@ -783,11 +776,30 @@ class _CourseViewState extends State<CourseView> {
                           // Course details table
                           if (isCompactLayout)
                             Column(
-                              children: List.generate(
-                                course.numHoles,
-                                (holeIndex) =>
-                                    _buildCompactSavedHoleRow(course, holeIndex),
-                              ),
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    SizedBox(width: 22, child: Text('H', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    SizedBox(width: 6),
+                                    SizedBox(width: 28, child: Text('Par', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    SizedBox(width: 6),
+                                    SizedBox(width: 56, child: Text('Dist', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    SizedBox(width: 6),
+                                    SizedBox(width: 28, child: Text('F', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    SizedBox(width: 6),
+                                    SizedBox(width: 40, child: Text('Map', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    SizedBox(width: 6),
+                                    SizedBox(width: 40, child: Text('Tee', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ...List.generate(
+                                  course.numHoles,
+                                  (holeIndex) =>
+                                      _buildCompactSavedHoleRow(course, holeIndex),
+                                ),
+                              ],
                             )
                           else
                             SingleChildScrollView(
